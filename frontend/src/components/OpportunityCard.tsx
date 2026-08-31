@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, CheckCircle2, ShieldAlert, ShieldCheck, ArrowRight, DollarSign, Target } from 'lucide-react';
+import { Sparkles, CheckCircle2, ShieldAlert, ShieldCheck, ArrowRight, DollarSign, Target, Eye } from 'lucide-react';
 import { OpportunityItem, ActionItem, PolicyCheckResult } from '../types';
 
 interface OpportunityCardProps {
@@ -17,7 +17,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
 }) => {
   if (!action) {
     return (
-      <div className="glass-card rounded-2xl p-8 text-center border border-slate-800 bg-slate-900/40">
+      <div className="glass-card rounded-2xl p-8 text-center border border-slate-800 bg-slate-900/40" id="opportunity-card-section">
         <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-500/20">
           <Sparkles className="w-6 h-6 animate-pulse" />
         </div>
@@ -34,7 +34,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
   const isPending = action.status === 'PENDING_APPROVAL' || action.status === 'PROPOSED';
 
   return (
-    <div className={`glass-card rounded-2xl p-6 border transition-all ${
+    <div id="opportunity-card-section" className={`glass-card rounded-2xl p-6 border transition-all ${
       isBlocked
         ? 'border-rose-500/40 bg-rose-950/10'
         : isCompleted
@@ -142,16 +142,26 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           </div>
         </div>
 
-        {/* Primary Review & Approve CTA Button */}
-        {isPending && (
-          <button
-            onClick={onReviewClick}
-            className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
-          >
-            <span>Review & Approve Action</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
-        )}
+        {/* Primary Review & Action CTA Buttons */}
+        <div>
+          {isPending ? (
+            <button
+              onClick={onReviewClick}
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
+            >
+              <span>Review & Approve Action</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={onReviewClick}
+              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition"
+            >
+              <Eye className="w-4 h-4" />
+              <span>Inspect Action Details & Policy</span>
+            </button>
+          )}
+        </div>
       </div>
 
     </div>

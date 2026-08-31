@@ -89,7 +89,23 @@ export function App() {
       setOpportunity(result.opportunity);
       setAction(result.action);
       setPolicyCheck(result.policy_check);
-      await loadData();
+      
+      // Update background metrics & audits without wiping policyCheck or action
+      const [sysStatus, mMetrics, pList, audits] = await Promise.all([
+        api.getSystemStatus(),
+        api.getMerchantMetrics(),
+        api.getPayments(),
+        api.getAuditEvents()
+      ]);
+
+      setStatus(sysStatus);
+      setMetrics(mMetrics);
+      if (pList && pList.length > 0) setPayments(pList);
+      if (audits && audits.length > 0) setAuditEvents(audits);
+
+      setTimeout(() => {
+        document.getElementById('opportunity-card-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
     } catch (err) {
       console.error("Scan error:", err);
     } finally {
