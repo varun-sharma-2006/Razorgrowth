@@ -10,7 +10,7 @@
 
 ## 🎬 Demo
 
-![RazorGrowth Demo](./docs/demo.gif)
+![RazorGrowth Demo](./docs/demo.svg)
 
 *AI detects a failed-payment recovery opportunity → Policy Engine validates budget against merchant safety cap → Merchant explicitly approves → Razorpay executes with idempotency guard → Audit timeline updates in real time.*
 

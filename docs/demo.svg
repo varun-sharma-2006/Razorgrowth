@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 520" width="100%" height="100%">
+  <defs>
+    <style>
+      .bg { fill: #0b0f19; }
+      .card { fill: #1e293b; stroke: #334155; stroke-width: 1.5; }
+      .text-title { font-family: 'Inter', system-ui, sans-serif; font-size: 20px; font-weight: 800; fill: #ffffff; }
+      .text-sub { font-family: 'Inter', system-ui, sans-serif; font-size: 12px; fill: #94a3b8; }
+      .text-bold { font-family: 'Inter', system-ui, sans-serif; font-size: 13px; font-weight: 700; fill: #f8fafc; }
+      .text-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: #38bdf8; }
+      .step-active { fill: #6366f1; stroke: #818cf8; stroke-width: 2; }
+      .step-pass { fill: #059669; stroke: #10b981; stroke-width: 2; }
+      .pulse-ring { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+      @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+    </style>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#4f46e5"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" width="920" height="520" rx="16" stroke="#1e293b" stroke-width="2"/>
+
+  <!-- Top App Header Bar -->
+  <rect x="0" y="0" width="920" height="60" rx="16" fill="#0f172a"/>
+  <rect x="0" y="58" width="920" height="2" fill="#1e293b"/>
+  <circle cx="30" cy="30" r="14" fill="url(#headerGrad)"/>
+  <text x="30" y="34" font-family="Inter" font-size="14" font-weight="900" fill="#ffffff" text-anchor="middle">⚡</text>
+  <text x="54" y="35" font-family="Inter" font-size="17" font-weight="800" fill="#ffffff">RazorGrowth</text>
+  <rect x="165" y="18" width="160" height="24" rx="6" fill="#10b981" fill-opacity="0.15" stroke="#10b981" stroke-opacity="0.3"/>
+  <circle cx="177" cy="30" r="4" fill="#34d399"/>
+  <text x="187" y="36" font-family="Inter" font-size="11" font-weight="700" fill="#34d399">RAZORPAY TEST MODE</text>
+
+  <rect x="335" y="18" width="180" height="24" rx="6" fill="#818cf8" fill-opacity="0.15" stroke="#818cf8" stroke-opacity="0.3"/>
+  <text x="345" y="36" font-family="Inter" font-size="11" font-weight="700" fill="#a5b4fc">AI: DEMO HEURISTIC MODE</text>
+
+  <!-- Interactive Demo Flow Graphic -->
+  
+  <!-- Step 1: Telemetry Scan -->
+  <rect x="30" y="80" width="200" height="410" rx="12" class="card"/>
+  <rect x="30" y="80" width="200" height="36" rx="12" fill="#1e293b"/>
+  <text x="45" y="103" class="text-bold" fill="#f43f5e">1. Failure Telemetry</text>
+  <text x="45" y="132" class="text-sub">9 Failed Drop-offs</text>
+  <text x="45" y="152" font-family="Inter" font-size="18" font-weight="800" fill="#fecdd3">₹7,850.00</text>
+  <line x1="45" y1="168" x2="215" y2="168" stroke="#334155"/>
+  <text x="45" y="188" font-family="Inter" font-size="11" font-weight="600" fill="#94a3b8">Failure Reasons:</text>
+  <text x="45" y="208" font-family="Inter" font-size="11" fill="#cbd5e1">• 4 Bank Declines</text>
+  <text x="45" y="226" font-family="Inter" font-size="11" fill="#cbd5e1">• 3 Card Expirations</text>
+  <text x="45" y="244" font-family="Inter" font-size="11" fill="#cbd5e1">• 2 Network Timeouts</text>
+  <rect x="45" y="270" width="170" height="40" rx="8" fill="#10b981" fill-opacity="0.1" stroke="#10b981" stroke-opacity="0.3"/>
+  <text x="55" y="288" font-family="Inter" font-size="10" font-weight="700" fill="#34d399">70% Recovery Methodology</text>
+  <text x="55" y="302" font-family="Inter" font-size="11" font-weight="800" fill="#ffffff">₹5,495.00 Est. Recovery</text>
+
+  <!-- Arrow 1 -> 2 -->
+  <path d="M 240 270 L 260 270" stroke="#818cf8" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 2: AI Opportunity -->
+  <rect x="270" y="80" width="200" height="410" rx="12" class="card"/>
+  <rect x="270" y="80" width="200" height="36" rx="12" fill="#1e293b"/>
+  <text x="285" y="103" class="text-bold" fill="#818cf8">2. AI Opportunity</text>
+  <text x="285" y="132" class="text-sub">Confidence Score</text>
+  <text x="285" y="152" font-family="Inter" font-size="18" font-weight="800" fill="#c7d2fe">87% Confidence</text>
+  <line x1="285" y1="168" x2="455" y2="168" stroke="#334155"/>
+  <text x="285" y="188" font-family="Inter" font-size="11" font-weight="600" fill="#94a3b8">Proposed Action:</text>
+  <text x="285" y="208" font-family="Inter" font-size="11" fill="#cbd5e1">Recovery Payment Links</text>
+  <text x="285" y="238" font-family="Inter" font-size="11" font-weight="600" fill="#94a3b8">Proposed Budget:</text>
+  <text x="285" y="258" font-family="Inter" font-size="14" font-weight="800" fill="#38bdf8">₹850.00 INR</text>
+
+  <!-- Arrow 2 -> 3 -->
+  <path d="M 480 270 L 500 270" stroke="#10b981" stroke-width="2"/>
+
+  <!-- Step 3: Policy Checklist & Approval -->
+  <rect x="510" y="80" width="200" height="410" rx="12" class="card" stroke="#10b981"/>
+  <rect x="510" y="80" width="200" height="36" rx="12" fill="#064e3b"/>
+  <text x="525" y="103" class="text-bold" fill="#34d399">3. Policy Safety Guard</text>
+  <text x="525" y="132" class="text-sub">Deterministic Checks:</text>
+  <text x="525" y="155" font-family="Inter" font-size="11" fill="#34d399">✓ Type: Recovery</text>
+  <text x="525" y="175" font-family="Inter" font-size="11" fill="#34d399">✓ Budget ₹850 ≤ ₹1,000</text>
+  <text x="525" y="195" font-family="Inter" font-size="11" fill="#34d399">✓ Human Guard Active</text>
+  <text x="525" y="215" font-family="Inter" font-size="11" fill="#34d399">✓ Idempotency Key</text>
+  <line x1="525" y1="230" x2="695" y2="230" stroke="#065f46"/>
+  <rect x="525" y="245" width="170" height="34" rx="6" fill="#10b981"/>
+  <text x="610" y="267" font-family="Inter" font-size="11" font-weight="800" fill="#ffffff" text-anchor="middle">STATUS: SAFE TO APPROVE</text>
+
+  <!-- Arrow 3 -> 4 -->
+  <path d="M 720 270 L 740 270" stroke="#fbbf24" stroke-width="2"/>
+
+  <!-- Step 4: Razorpay REST & Audit Log -->
+  <rect x="750" y="80" width="140" height="410" rx="12" class="card"/>
+  <rect x="750" y="80" width="140" height="36" rx="12" fill="#1e293b"/>
+  <text x="760" y="103" class="text-bold" fill="#fcd34d">4. Razorpay Execution</text>
+  <text x="760" y="132" font-family="Inter" font-size="10" font-weight="700" fill="#f59e0b">Idempotency Key:</text>
+  <text x="760" y="148" class="text-mono" font-size="9">RG-ACT-10291</text>
+  <line x1="760" y1="162" x2="880" y2="162" stroke="#334155"/>
+  <text x="760" y="180" font-family="Inter" font-size="10" font-weight="700" fill="#94a3b8">Audit Lifecycle:</text>
+  <text x="760" y="198" font-family="Inter" font-size="10" fill="#34d399">✓ DATA_ANALYSIS</text>
+  <text x="760" y="214" font-family="Inter" font-size="10" fill="#34d399">✓ POLICY_EVAL</text>
+  <text x="760" y="230" font-family="Inter" font-size="10" fill="#34d399">✓ APPROVED</text>
+  <text x="760" y="246" font-family="Inter" font-size="10" fill="#34d399">✓ RZP_API_CALL</text>
+  <text x="760" y="262" font-family="Inter" font-size="10" fill="#34d399">✓ WEBHOOK_RECV</text>
+</svg>
