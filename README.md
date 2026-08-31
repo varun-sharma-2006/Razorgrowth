@@ -105,7 +105,7 @@ PostgreSQL Database (SQLite fallback ready)
 ## ✨ Key Features
 
 - **AI-Powered Revenue Recovery**: Scans transaction logs, evaluates customer purchase history, and calculates explainable recovery estimates:
-  $$\text{Estimated Recoverable} = \text{Failed Payments Loss (\text{₹}7,850.00)} \times 70\% \text{ Conversion Rate} = \text{₹}5,495.00$$
+  > **Estimated Recoverable = Failed Payments Loss (₹7,850.00) × 70% Conversion Rate = ₹5,495.00**
 - **Dual Execution Modes**: Supports live **Razorpay Test Mode** APIs (`KEY_ID` & `KEY_SECRET`) and a zero-credential **Local Demo Adapter** mode so judges can evaluate the app instantly out-of-the-box.
 - **HMAC SHA256 Webhook Verification**: Signature verification (`X-Razorpay-Signature`) for asynchronous `order.paid` and `payment.failed` webhook events.
 - **Judges' Live Failure Control Room**:
@@ -259,7 +259,7 @@ genraz/
 │   └── vite.config.ts
 ├── docs/
 │   ├── architecture.svg         # Crisp SVG architecture diagram
-│   └── demo.gif                 # Animated UI demonstration placeholder
+│   └── demo.svg                 # Animated UI demonstration flow diagram
 ├── README.md
 └── LICENSE                      # MIT License
 ```
