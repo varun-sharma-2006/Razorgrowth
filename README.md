@@ -1,127 +1,130 @@
 # RazorGrowth ⚡
 
-> **Permissioned AI Merchant-Growth Agent for the Razorpay AI Buildathon**  
-> *Recovering lost merchant revenue from failed payments with deterministic policy safety, explicit human-in-the-loop approval, idempotent execution, and visual auditability.*
+> **Permissioned AI Merchant-Growth Agent for the Razorpay AI Buildathon 2026**  
+> *Recovering lost merchant payment revenue with deterministic policy safety, explicit human-in-the-loop approval, idempotent Razorpay execution, and complete visual auditability.*
+
+🔗 **Repo**: [github.com/varun-sharma-2006/Razorgrowth](https://github.com/varun-sharma-2006/Razorgrowth) | 📜 **License**: [MIT License](LICENSE)  
+👤 **Author**: Built solo by [Varun Sharma](https://github.com/varun-sharma-2006) for the Razorpay AI Buildathon 2026.
 
 ---
 
-## 📌 Problem Statement & Core Value Proposition
+## 🎬 Demo
 
-Unmonitored payment failures are one of the largest sources of hidden merchant revenue loss. Traditional payment dashboards leave merchants to manually track drop-offs, diagnose failure patterns, and attempt manual recovery.
+![RazorGrowth Demo](./docs/demo.gif)
 
-**RazorGrowth** solves this problem by giving AI the ability to analyze transaction logs and prepare targeted revenue recovery actions—but **never unrestricted financial authority**.
+*AI detects a failed-payment recovery opportunity → Policy Engine validates budget against merchant safety cap → Merchant explicitly approves → Razorpay executes with idempotency guard → Audit timeline updates in real time.*
 
-### Key Architectural Principle
-> *"RazorGrowth gives AI the ability to identify and prepare merchant-growth actions, but never unrestricted financial authority."*
+---
 
-- **AI Reasoning Layer**: Identifies revenue recovery opportunities (specifically failed payment drop-offs), evaluates customer intent metrics, and structures proposals with verified evidence, decision factors, and confidence scores.
-- **Deterministic Policy Safety Engine**: Enforces strict financial rules (e.g., maximum budget caps, allowed action types) BEFORE human review or API execution.
-- **Explicit Merchant Approval**: No financial action executes without explicit merchant authorization.
-- **Idempotent Razorpay Execution**: All REST API calls reuse a unique `idempotency_key` (`X-Razorpay-Idempotency-Key`) to guarantee zero duplicate financial transactions during network retries.
-- **Complete Visual Audit Trail**: Step-by-step trace of every AI scan, policy check, merchant decision, Razorpay API call, and webhook event.
+## 📊 Market Context
+
+In India's fast-growing digital commerce ecosystem, payment drop-off rates typically range from **5% to 15%** depending on payment method (UPI, cards, netbanking) and issuing bank downtime. For high-volume merchants, unmonitored failed payments represent a significant drain on recoverable top-line revenue.
+
+Traditional analytics dashboards leave merchants with static reports, forcing manual intervention to diagnose failures, select eligible high-intent customers, and issue recovery payment links.
+
+**RazorGrowth** bridges this gap by introducing an AI agent that continuously monitors payment telemetry, identifies high-intent recovery opportunities, and prepares structured recovery campaigns—**without ever holding unrestricted financial authority**.
+
+```
+  Failed Payment Drop-off          AI Opportunity Scan           Policy Safety Check           Human Approval           Razorpay REST Execution
+┌─────────────────────────┐     ┌───────────────────────┐     ┌─────────────────────┐     ┌────────────────────┐     ┌────────────────────────┐
+│ 9 Failures (₹7,850.00)  │ ──► │ Evidence & Factors    │ ──► │ Budget Cap ≤ ₹1,000 │ ──► │ Merchant Review &  │ ──► │ Recovery Payment Link  │
+│ Bank drop / Card expire │     │ 87% Confidence Score  │     │ Action Type Allowed │     │ Explicit Approval  │     │ Idempotency Key Guard  │
+└─────────────────────────┘     └───────────────────────┘     └─────────────────────┘     └────────────────────┘     └────────────────────────┘
+```
+
+---
+
+## 📌 Core Architectural Principles
+
+1. **Controlled Autonomy Over Unrestricted Authority**:
+   - The LLM reasons, identifies opportunities, and generates recommendations.
+   - Deterministic backend code enforces financial limits and executes API calls.
+   - The merchant retains explicit approval authority before any money or payment link is generated.
+
+2. **Deterministic Safety Policy Engine**:
+   - Validates every proposal against merchant policy limits (e.g., maximum ₹1,000 budget cap).
+   - Rejects out-of-bounds proposals before human approval or API execution occurs.
+   - Generates an explicit **"Why Was This Action Allowed?" Checklist**:
+     - `[✓] Action type allowed (failed_payment_recovery)`
+     - `[✓] Proposed Budget ₹850.00 ≤ Merchant Cap ₹1,000.00`
+     - `[✓] Human Approval Guard active`
+     - `[✓] Action Idempotency Key generated (RG-ACT-XXXXX)`
+     - `STATUS: SAFE TO APPROVE`
+
+3. **Fault-Tolerant Idempotent Execution**:
+   - Assigns a unique `idempotency_key` (e.g., `RG-ACT-10291`) to every proposed action.
+   - Network retries reuse the identical idempotency key (`X-Razorpay-Idempotency-Key`) to guarantee zero duplicate financial transactions.
+
+4. **Transparent Audit Trail**:
+   - Visual step-by-step lifecycle log (`DATA_ANALYSIS` → `PATTERN_DETECTION` → `POLICY_EVALUATION` → `MERCHANT_APPROVAL` → `RAZORPAY_API_CALL` → `WEBHOOK_RECEIVED`).
+   - Includes expandable sanitized JSON payloads for full auditability.
 
 ---
 
 ## 🏗️ System Architecture
 
-```
-                                  RAZORGROWTH
-                                       │
-                                       ▼
-                           React + TypeScript UI
-                                       │
-                                  REST / HTTP
-                                       │
-                                       ▼
-                               Python FastAPI Backend
-                                       │
-             ┌─────────────────────────┼─────────────────────────┐
-             │                         │                         │
-             ▼                         ▼                         ▼
-        AI Service               Policy Engine            Razorpay Service
-     (Gemini/OpenAI/          (Deterministic Safety       (REST APIs, Webhooks,
-      Heuristic Mode)          Rules & Budget Caps)        Razorpay Test Mode)
-             │                         │                         │
-             └────────────┬────────────┘                         ▼
-                          │                            Razorpay Sandbox / Test
-                          ▼
-                  Action / Approval
-                          │
-                          ▼
-                    Audit Service
-                          │
-                          ▼
-        PostgreSQL Database (SQLite fallback ready)
-```
+![RazorGrowth Architecture](./docs/architecture.svg)
 
-### Critical Execution Flow
+<details>
+<summary>🔍 View Text / ASCII Architecture Diagram</summary>
 
 ```
-Transaction Data & Payment Logs
-             │
-             ▼
-AI Analytics & Pattern Detection (Evidence + Decision Factors + Confidence Score)
-             │
-             ▼
-Policy Engine Validation (Deterministic Budget Cap & Safety Checklist)
-             │
-             ▼
-Human-in-the-Loop Approval (Explicit Merchant Review)
-             │
-             ▼
-Razorpay Test Mode REST API Integration (Idempotency Key Guard)
-             │
-             ▼
-Response Verification & Webhook Event Processing (HMAC SHA256 Signature Checked)
-             │
-             ▼
-Visual Audit Trail Update
+                    RAZORGROWTH
+                         │
+                         ▼
+             React + TypeScript UI
+                         │
+                    REST / HTTP
+                         │
+                         ▼
+                 FastAPI Backend
+                         │
+       ┌─────────────────┼─────────────────┐
+       │                 │                 │
+       ▼                 ▼                 ▼
+  AI Service       Policy Engine      Razorpay Service
+(Gemini/OpenAI/  (Deterministic      (REST APIs, Webhooks,
+ Heuristic Mode)  Safety Rules)      Razorpay Test Mode)
+       │                 │                 │
+       └────────┬────────┘                 ▼
+                │             Razorpay Sandbox / Test
+                ▼
+        Action / Approval
+                │
+                ▼
+          Audit Service
+                │
+                ▼
+PostgreSQL Database (SQLite fallback ready)
 ```
+
+</details>
 
 ---
 
 ## ✨ Key Features
 
-1. **Failed Payment Revenue Recovery**:
-   - Automatically analyzes payment telemetry (bank declines, card expirations, network drop-offs, insufficient funds).
-   - Generates targeted recovery payment links for eligible customers.
-   - Includes explainable methodology:
-     $$\text{Estimated Recoverable} = \text{Failed Loss (\text{₹}7,850.00)} \times 70\% \text{ Conversion Rate} = \text{₹}5,495.00$$
-
-2. **Deterministic Safety Policy Engine**:
-   - Rejects invalid proposals regardless of AI output.
-   - Displays line-by-line **Policy Evaluation Checklist**:
-     - `[✓] Action type allowed (failed_payment_recovery)`
-     - `[✓] Proposed Budget ₹850.00 ≤ Merchant Cap ₹1,000.00`
-     - `[✓] Human Approval Guard active`
-     - `[✓] Action Idempotency Key generated`
-     - `STATUS: SAFE TO APPROVE`
-
-3. **Fault-Tolerant Idempotent Execution**:
-   - Assigns a unique `idempotency_key` (e.g., `RG-ACT-10291`) to every financial proposal.
-   - Retries reuse identical idempotency keys to eliminate duplicate transaction risks.
-
-4. **Judges' Live Failure Control Room**:
-   - **Demo 1 — Safety Policy Block**: Proposes ₹3,000 budget against ₹1,000 merchant limit → Policy Engine blocks proposal immediately.
-   - **Demo 2 — API Timeout Retry & Safe Halt**: Simulates API gateway timeout → Retries with idempotency key → Engages `SAFE HALT` with zero duplicate charges.
-
-5. **Visual Audit Trail & Timeline**:
-   - Step-by-step visual timeline log (`DATA_ANALYSIS` → `PATTERN_DETECTION` → `POLICY_EVALUATION` → `MERCHANT_APPROVAL` → `RAZORPAY_API_CALL` → `WEBHOOK_RECEIVED`).
-   - Includes expandable sanitized JSON payloads for full evidence auditability.
+- **AI-Powered Revenue Recovery**: Scans transaction logs, evaluates customer purchase history, and calculates explainable recovery estimates:
+  $$\text{Estimated Recoverable} = \text{Failed Payments Loss (\text{₹}7,850.00)} \times 70\% \text{ Conversion Rate} = \text{₹}5,495.00$$
+- **Dual Execution Modes**: Supports live **Razorpay Test Mode** APIs (`KEY_ID` & `KEY_SECRET`) and a zero-credential **Local Demo Adapter** mode so judges can evaluate the app instantly out-of-the-box.
+- **HMAC SHA256 Webhook Verification**: Signature verification (`X-Razorpay-Signature`) for asynchronous `order.paid` and `payment.failed` webhook events.
+- **Judges' Live Failure Control Room**:
+  - **Demo 1 (Safety Policy Limit Block)**: AI proposes ₹3,000 budget against ₹1,000 cap → Policy Engine immediately BLOCKS the action.
+  - **Demo 2 (Razorpay API Timeout & Safe Halt)**: Simulates gateway 504 timeout → Retries with identical idempotency key → Engages `SAFE HALT` with zero duplicate charges.
 
 ---
 
 ## 🛠️ Tech Stack
 
 - **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, Lucide Icons, Axios.
-- **Backend**: Python 3.13, FastAPI, Pydantic V2, SQLAlchemy (Async).
-- **Database**: PostgreSQL (Primary) / SQLite (Local Async Development).
+- **Backend**: Python 3.13, FastAPI, Pydantic V2, Async SQLAlchemy.
+- **Database**: PostgreSQL (Primary) / SQLite Async (Development & Demo).
 - **AI Integration**: Modular `AIService` supporting Gemini 2.5 Flash, OpenAI GPT-4o-mini, or zero-config Demo Heuristic Mode.
-- **Payment Integration**: Razorpay REST API (`/v1/payment_links`), HMAC SHA256 Webhook Verification (`X-Razorpay-Signature`), Razorpay Test Mode & Local Demo Adapter.
+- **Payment API**: Razorpay REST API (`/v1/payment_links`), HMAC SHA256 Webhook verification, Razorpay Test Mode & Local Demo Adapter.
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Quick Start Guide
 
 ### Prerequisites
 - Python 3.10+
@@ -132,7 +135,7 @@ Visual Audit Trail Update
 ```bash
 cd backend
 
-# Create virtual environment (optional)
+# Create virtual environment
 python -m venv venv
 # On Windows:
 venv\Scripts\activate
@@ -142,15 +145,18 @@ source venv/bin/activate
 # Install dependencies
 pip install -r requirements.txt
 
+# Create environment file from template
+cp .env.example .env
+
 # Start FastAPI server (auto-seeds database with 9 failed payments totaling ₹7,850)
 python -m uvicorn app.main:app --reload --port 8000
 ```
-- Server live at: `http://localhost:8000`
+- Server URL: `http://localhost:8000`
 - Interactive API Docs: `http://localhost:8000/docs`
 
 ### 2. Frontend Setup
 
-Open a second terminal window:
+In a second terminal:
 
 ```bash
 cd frontend
@@ -161,31 +167,47 @@ npm.cmd install
 # Start Vite dev server
 npm.cmd run dev
 ```
-- Open application in browser at: `http://localhost:5173`
+- Application Dashboard: `http://localhost:5173`
 
 ---
 
-## 🧪 Running Automated Tests
+## 🧪 Running Automated Unit Tests
 
-The backend includes 11 focused unit test functions covering all critical subsystems:
+The backend includes **11 focused unit test functions** covering all critical subsystems:
 
 ```bash
 cd backend
-python -m pytest tests/test_backend.py
+python -m pytest tests/test_backend.py -v
 ```
 
 ### Verified Test Suite
-- `test_health_status_endpoint`: API root & merchant integration status
-- `test_merchant_metrics_calculation`: Metric calculations (₹7,850 loss, ₹5,495 recoverable)
-- `test_ai_opportunity_generation`: AI analysis & confidence score evaluation
-- `test_policy_engine_allowed_budget`: Validates proposed ₹850 <= ₹1,000 passes policy
+- `test_health_status_endpoint`: API health & integration status
+- `test_merchant_metrics_calculation`: Metrics calculation (₹7,850 loss, ₹5,495 recoverable)
+- `test_ai_opportunity_generation`: AI telemetry scan & confidence score evaluation
+- `test_policy_engine_allowed_budget`: Validates proposed ₹850 <= ₹1,000 passes safety check
 - `test_policy_engine_blocked_budget`: Validates proposed ₹3,000 > ₹1,000 is blocked by Policy Engine
 - `test_merchant_approval_flow`: End-to-end human approval & Razorpay API execution
-- `test_merchant_rejection_flow`: Merchant proposal rejection handling
-- `test_action_idempotency_key_uniqueness`: Idempotency key uniqueness
+- `test_merchant_rejection_flow`: Explicit proposal rejection handling
+- `test_action_idempotency_key_uniqueness`: Idempotency key uniqueness per action
 - `test_api_timeout_and_retry_safe_halt`: API timeout simulation & safe halt verification
 - `test_razorpay_webhook_signature_verification`: Webhook HMAC SHA256 signature verification
 - `test_audit_event_sanitized_logging`: Audit log creation & payload sanitization
+
+---
+
+## 🌐 Deployment Guide
+
+### Deploying Backend (Render / Railway)
+1. Connect your GitHub repository to [Render](https://render.com).
+2. Root Directory: `backend`
+3. Build Command: `pip install -r requirements.txt`
+4. Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
+
+### Deploying Frontend (Vercel / Netlify)
+1. Connect repository to [Vercel](https://vercel.com).
+2. Root Directory: `frontend`
+3. Build Command: `npm run build`
+4. Output Directory: `dist`
 
 ---
 
@@ -195,9 +217,9 @@ python -m pytest tests/test_backend.py
 genraz/
 ├── backend/
 │   ├── app/
-│   │   ├── main.py              # FastAPI application entrypoint
+│   │   ├── main.py              # FastAPI application entrypoint & lifespan
 │   │   ├── config.py            # Pydantic settings & environment config
-│   │   ├── database.py          # SQLAlchemy async database setup
+│   │   ├── database.py          # SQLAlchemy async database engine
 │   │   ├── models.py            # 7 SQLAlchemy entities
 │   │   ├── schemas.py           # Pydantic request/response schemas
 │   │   ├── seed.py              # Database seeder (10 customers, 9 failed payments)
@@ -235,12 +257,15 @@ genraz/
 │   │   └── index.css                     # Tailwind CSS & custom styling
 │   ├── package.json
 │   └── vite.config.ts
+├── docs/
+│   ├── architecture.svg         # Crisp SVG architecture diagram
+│   └── demo.gif                 # Animated UI demonstration placeholder
 ├── README.md
-└── .gitignore
+└── LICENSE                      # MIT License
 ```
 
 ---
 
 ## 📜 License
 
-Built for the **Razorpay AI Buildathon 2026**.
+Distributed under the [MIT License](LICENSE). Built solo by **Varun Sharma** for the **Razorpay AI Buildathon 2026**.
