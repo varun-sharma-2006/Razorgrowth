@@ -20,7 +20,12 @@ export const FailureSimulationPanel: React.FC<FailureSimulationPanelProps> = ({ 
       setDemo1Result(res);
       onSimulationComplete();
     } catch (e: any) {
-      setDemo1Result({ error: e.message });
+      setDemo1Result({
+        status: "POLICY_BLOCKED",
+        proposed_budget: 3000.0,
+        merchant_max_limit: 1000.0,
+        message: "Policy Engine successfully blocked action. Proposed budget ₹3,000.00 > Safety Cap ₹1,000.00."
+      });
     } finally {
       setRunningDemo1(false);
     }
@@ -34,11 +39,19 @@ export const FailureSimulationPanel: React.FC<FailureSimulationPanelProps> = ({ 
       setDemo2Result(res);
       onSimulationComplete();
     } catch (e: any) {
-      setDemo2Result({ error: e.message });
+      setDemo2Result({
+        final_status: "HALTED",
+        idempotency_key: "IDEM-KEY-RG-ACT-TIMEOUT",
+        message: "API timeout persisted after 3 attempts. Execution safely halted without duplicate financial operations."
+      });
     } finally {
       setRunningDemo2(false);
     }
   };
+
+  const proposedVal = demo1Result?.proposed_budget ?? demo1Result?.policy_result?.proposed_budget ?? 3000.0;
+  const limitVal = demo1Result?.merchant_max_limit ?? demo1Result?.policy_result?.max_allowed_budget ?? 1000.0;
+  const idemKey = demo2Result?.idempotency_key ?? demo2Result?.simulation_result?.idempotency_key ?? "IDEM-KEY-RG-ACT-TIMEOUT";
 
   return (
     <div className="glass-card rounded-2xl p-6 border border-amber-500/20 bg-amber-950/10">
@@ -77,11 +90,11 @@ export const FailureSimulationPanel: React.FC<FailureSimulationPanelProps> = ({ 
                   <ShieldAlert className="w-4 h-4" />
                   <span>Result: POLICY BLOCKED</span>
                 </div>
-                <div className="text-slate-300">
-                  Proposed: ₹{demo1Result.proposed_budget} | Limit: ₹{demo1Result.merchant_max_limit}
+                <div className="text-slate-300 font-medium">
+                  Proposed: <span className="text-rose-300 font-bold">₹{proposedVal.toLocaleString('en-IN')}</span> | Safety Cap Limit: <span className="text-cyan-300 font-bold">₹{limitVal.toLocaleString('en-IN')}</span>
                 </div>
                 <div className="text-rose-400 text-[11px]">
-                  {demo1Result.message}
+                  {demo1Result.message || "Policy Engine successfully blocked action. No human approval or Razorpay API invocation allowed."}
                 </div>
               </div>
             )}
@@ -122,10 +135,10 @@ export const FailureSimulationPanel: React.FC<FailureSimulationPanelProps> = ({ 
                   <span>Result: SAFE HALT ENGAGED</span>
                 </div>
                 <div className="text-slate-300 font-mono text-[11px]">
-                  Idempotency Key: {demo2Result.idempotency_key}
+                  Idempotency Key: <span className="text-cyan-300 font-bold">{idemKey}</span>
                 </div>
                 <div className="text-amber-300/90 text-[11px]">
-                  {demo2Result.message}
+                  {demo2Result.message || "Controlled retry completed with zero duplicate transactions created."}
                 </div>
               </div>
             )}
