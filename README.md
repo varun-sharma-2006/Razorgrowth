@@ -4,7 +4,7 @@
 > *Recovering lost merchant payment revenue with deterministic policy safety, explicit human-in-the-loop approval, idempotent Razorpay execution, and complete visual auditability.*
 
 🔗 **Repo**: [github.com/varun-sharma-2006/Razorgrowth](https://github.com/varun-sharma-2006/Razorgrowth) | 📜 **License**: [MIT License](LICENSE)  
-👤 **Author**: Built solo by [Varun Sharma](https://github.com/varun-sharma-2006) for the Razorpay AI Buildathon 2026.
+👥 **Team**: Built by [Varun Sharma](https://github.com/varun-sharma-2006) and [Yashika Garg](https://github.com/yashikagarg16) for the Razorpay AI Buildathon 2026.
 
 ---
 
@@ -268,4 +268,4 @@ genraz/
 
 ## 📜 License
 
-Distributed under the [MIT License](LICENSE). Built solo by **Varun Sharma** for the **Razorpay AI Buildathon 2026**.
+Distributed under the [MIT License](LICENSE). Built by **[Varun Sharma](https://github.com/varun-sharma-2006)** and **[Yashika Garg](https://github.com/yashikagarg16)** for the **Razorpay AI Buildathon 2026**.
