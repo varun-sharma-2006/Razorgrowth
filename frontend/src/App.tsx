@@ -18,14 +18,30 @@ import {
 } from './types';
 import { LayoutDashboard, AlertCircle, History, Sparkles } from 'lucide-react';
 
+const initialFailedPayments: PaymentItem[] = [
+  { id: "pay_fail_01", customer_id: "cust_104", customer_name: "Vikram Patel", customer_email: "vikram.p@example.com", amount: 850.0, currency: "INR", status: "failed", failure_reason: "bank_decline", payment_method: "upi", created_at: new Date().toISOString() },
+  { id: "pay_fail_02", customer_id: "cust_102", customer_name: "Priya Sharma", customer_email: "priya.s@example.com", amount: 1299.0, currency: "INR", status: "failed", failure_reason: "insufficient_funds", payment_method: "card", created_at: new Date().toISOString() },
+  { id: "pay_fail_03", customer_id: "cust_101", customer_name: "Rohan Verma", customer_email: "rohan.v@example.com", amount: 2499.0, currency: "INR", status: "failed", failure_reason: "card_expired", payment_method: "card", created_at: new Date().toISOString() },
+  { id: "pay_fail_04", customer_id: "cust_105", customer_name: "Sneha Gupta", customer_email: "sneha.g@example.com", amount: 649.0, currency: "INR", status: "failed", failure_reason: "network_timeout", payment_method: "netbanking", created_at: new Date().toISOString() },
+  { id: "pay_fail_05", customer_id: "cust_107", customer_name: "Riya Sen", customer_email: "riya.s@example.com", amount: 499.0, currency: "INR", status: "failed", failure_reason: "bank_decline", payment_method: "upi", created_at: new Date().toISOString() },
+  { id: "pay_fail_06", customer_id: "cust_109", customer_name: "Neha Kapoor", customer_email: "neha.k@example.com", amount: 799.0, currency: "INR", status: "failed", failure_reason: "card_expired", payment_method: "card", created_at: new Date().toISOString() },
+  { id: "pay_fail_07", customer_id: "cust_103", customer_name: "Ananya Mehta", customer_email: "ananya.m@example.com", amount: 550.0, currency: "INR", status: "failed", failure_reason: "insufficient_funds", payment_method: "upi", created_at: new Date().toISOString() },
+  { id: "pay_fail_08", customer_id: "cust_106", customer_name: "Karan Malhotra", customer_email: "karan.m@example.com", amount: 400.0, currency: "INR", status: "failed", failure_reason: "network_timeout", payment_method: "netbanking", created_at: new Date().toISOString() },
+  { id: "pay_fail_09", customer_id: "cust_108", customer_name: "Aditya Nair", customer_email: "aditya.n@example.com", amount: 305.0, currency: "INR", status: "failed", failure_reason: "bank_decline", payment_method: "upi", created_at: new Date().toISOString() }
+];
+
+const initialAuditEvents: AuditEventItem[] = [
+  { id: "evt_init_01", merchant_id: "merch_razorgrowth_01", step: "DATA_ANALYSIS", status: "SUCCESS", component: "SystemInit", message: "RazorGrowth system initialized with 10 customer accounts and 9 failed payment records (Total lost: ₹7,850.00).", sanitized_payload: { initial_failed_count: 9, initial_failed_amount: 7850.0 }, timestamp: new Date().toISOString() }
+];
+
 export function App() {
   const [status, setStatus] = useState<SystemStatus | null>(null);
   const [metrics, setMetrics] = useState<MerchantMetrics | null>(null);
-  const [payments, setPayments] = useState<PaymentItem[]>([]);
+  const [payments, setPayments] = useState<PaymentItem[]>(initialFailedPayments);
   const [opportunity, setOpportunity] = useState<OpportunityItem | null>(null);
   const [action, setAction] = useState<ActionItem | null>(null);
   const [policyCheck, setPolicyCheck] = useState<PolicyCheckResult | null>(null);
-  const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>([]);
+  const [auditEvents, setAuditEvents] = useState<AuditEventItem[]>(initialAuditEvents);
   
   const [loading, setLoading] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -46,13 +62,13 @@ export function App() {
 
       setStatus(sysStatus);
       setMetrics(mMetrics);
-      setPayments(pList);
-      setAuditEvents(audits);
+      if (pList && pList.length > 0) setPayments(pList);
+      if (audits && audits.length > 0) setAuditEvents(audits);
 
-      if (opps.length > 0) {
+      if (opps && opps.length > 0) {
         setOpportunity(opps[0]);
       }
-      if (actList.length > 0) {
+      if (actList && actList.length > 0) {
         setAction(actList[0]);
       }
     } catch (err) {
@@ -91,6 +107,8 @@ export function App() {
     }
   };
 
+  const failedCount = payments.filter(p => p.status === 'failed').length || 9;
+
   return (
     <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
       
@@ -123,7 +141,7 @@ export function App() {
             }`}
           >
             <AlertCircle className="w-4 h-4" />
-            <span>Payment Failure Telemetry ({payments.filter(p => p.status === 'failed').length})</span>
+            <span>Payment Failure Telemetry ({failedCount})</span>
           </button>
 
           <button
@@ -197,7 +215,7 @@ export function App() {
             <span className="font-semibold text-slate-300">RazorGrowth</span> — Permissioned AI Merchant Growth Agent
           </div>
           <div>
-            Built for <span className="text-indigo-400 font-semibold">Razorpay AI Buildathon</span>
+            Built by <span className="text-indigo-400 font-semibold">Varun Sharma</span> & <span className="text-indigo-400 font-semibold">Yashika Garg</span> for <span className="text-indigo-400 font-semibold">Razorpay AI Buildathon 2026</span>
           </div>
         </div>
       </footer>

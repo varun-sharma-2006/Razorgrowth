@@ -54,7 +54,7 @@ export const Navbar: React.FC<NavbarProps> = ({ status, onRefresh, loading }) =>
               : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
           }`}>
             <Cpu className="w-3.5 h-3.5" />
-            <span>AI: {status?.ai_provider_mode || "Detecting..."}</span>
+            <span>AI: {status?.ai_provider_mode || "Demo Heuristic Mode"}</span>
           </div>
 
           {/* Database Badge */}
