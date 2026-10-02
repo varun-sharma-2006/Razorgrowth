@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Landing } from './components/Landing';
-import { SimTopBar, Speed } from './components/SimTopBar';
-import { AppSidebar, Page } from './components/AppSidebar';
+import { ControlDock, Speed } from './components/ControlDock';
+import { TopNav, Page } from './components/TopNav';
 import { LogoMark } from './components/LogoMark';
 import { LeaderboardTable } from './components/LeaderboardTable';
 import { KpiStrip } from './components/KpiStrip';
@@ -332,7 +332,6 @@ export function App() {
       <div className="min-h-screen text-slate-100">
         <LoginPage
           config={authConfig}
-          scenarioCount={scenarios.length}
           busy={authBusy}
           error={authError}
           onCredential={credential => signIn(() => api.googleLogin(credential))}
@@ -365,32 +364,27 @@ export function App() {
   const header = PAGE_HEADERS[page];
 
   return (
-    <div className="min-h-screen text-slate-100 flex flex-col lg:flex-row">
-      <AppSidebar
+    <div className="min-h-screen text-slate-100">
+      <TopNav
         user={user}
-        onLogout={logout}
         state={sim}
         page={page}
+        playing={playing}
         campaignCount={actions.length}
         onNavigate={setPage}
-        onExit={() => { setPlaying(false); setView('landing'); }}
+        onNewRun={() => { setPlaying(false); setView('landing'); }}
+        onLogout={logout}
       />
 
-      <div className="flex-1 min-w-0 px-4 sm:px-[clamp(1.25rem,4vw,3.25rem)] pt-5 lg:pt-8 pb-16 space-y-7">
-        <SimTopBar
-          state={sim}
-          playing={playing}
-          speed={speed}
-          onTogglePlay={() => setPlaying(p => !p)}
-          onSpeed={setSpeed}
-          onToggleAutoPilot={toggleAutoPilot}
-          onExit={() => { setPlaying(false); setView('landing'); }}
-        />
-
-        <header key={page} className="animate-in fade-in slide-in-from-bottom-1 duration-500">
-          <span className="eyebrow">{header.eyebrow === 'scenario' ? sim.scenario.name : header.eyebrow}</span>
-          <h1 className="font-display font-semibold text-slate-100 leading-[1.12] text-[clamp(2rem,3.4vw,2.75rem)] mt-2">{header.title}</h1>
-          <p className="mt-2 text-slate-400 max-w-[62ch]">{header.lede}</p>
+      <div className="max-w-[1400px] mx-auto min-w-0 px-4 sm:px-6 pt-7 pb-36 space-y-7">
+        <header key={page} className="animate-in fade-in slide-in-from-bottom-2 duration-500 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <span className="eyebrow">{header.eyebrow === 'scenario' ? `${sim.scenario.name} · ${sim.season}` : header.eyebrow}</span>
+            <h1 className="font-display font-bold text-slate-50 leading-[1.05] text-[clamp(2rem,3.6vw,3rem)] mt-3">
+              {header.title.split(' ').slice(0, -1).join(' ')} <span className="text-gradient">{header.title.split(' ').slice(-1)}</span>
+            </h1>
+            <p className="mt-2 text-slate-400 max-w-[62ch]">{header.lede}</p>
+          </div>
         </header>
 
         {banners}
@@ -398,23 +392,23 @@ export function App() {
         {page === 'overview' && (
           <div className="space-y-7 animate-in fade-in duration-300">
             {sim.current_tick === 0 && !playing && (
-              <div className="flex items-center gap-3 rounded-2xl border border-gold-500/30 bg-gold-500/[0.07] px-4 py-3 text-sm text-gold-100">
-                <Rocket className="w-4 h-4 shrink-0 text-gold-400" />
-                Your store is ready. Press <span className="font-semibold text-gold-200">Play</span> (or Space) to start the week.
+              <div className="glass-card flex items-center gap-3 rounded-2xl px-4 py-3 text-sm text-slate-200">
+                <Rocket className="w-4 h-4 shrink-0 text-brand-400" />
+                Your store is ready. Press <span className="font-semibold text-brand-200">Play</span> (or Space) to start the week.
               </div>
             )}
 
-            <KpiStrip state={sim} />
+            <KpiStrip state={sim} series={series} />
 
             <div className="grid xl:grid-cols-12 gap-6">
               <div className="xl:col-span-8 min-w-0 space-y-6">
                 <section className="glass-card rounded-[24px] p-6">
-                  <h2 className="font-display text-[1.3rem] font-semibold text-slate-100">Recovered revenue</h2>
+                  <h2 className="font-display text-xl font-bold text-slate-50">Recovered revenue</h2>
                   <p className="text-sm text-slate-500 mb-4">You vs doing nothing. The gap between the lines is your score.</p>
                   <RecoveryRaceChart series={series} runTicks={sim.run_ticks} />
                 </section>
                 <section className="glass-card rounded-[24px] p-6">
-                  <h2 className="font-display text-[1.3rem] font-semibold text-slate-100">Failed payments</h2>
+                  <h2 className="font-display text-xl font-bold text-slate-50">Failed payments</h2>
                   <p className="text-sm text-slate-500 mb-4">Every 6 hours, by payment method. Triangles mark store news.</p>
                   <FailuresChart series={series} runTicks={sim.run_ticks} events={events} />
                 </section>
@@ -483,6 +477,15 @@ export function App() {
         />
       )}
 
+      <ControlDock
+        state={sim}
+        playing={playing}
+        speed={speed}
+        onTogglePlay={() => setPlaying(p => !p)}
+        onSpeed={setSpeed}
+        onToggleAutoPilot={toggleAutoPilot}
+      />
+
       {showTour && <Tour onDone={() => setShowTour(false)} />}
     </div>
   );
@@ -526,7 +529,7 @@ const Footer = () => (
     <div className="max-w-[1240px] mx-auto px-4 sm:px-8 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
       <div><span className="font-display text-sm text-slate-300">RazorGrowth</span> · permissioned AI merchant-growth agent</div>
       <div>
-        Built by <span className="text-gold-300">Varun Sharma</span> &amp; <span className="text-gold-300">Yashika Garg</span> for <span className="text-gold-300">Razorpay AI Buildathon 2026</span>
+        Built by <span className="text-brand-300">Varun Sharma</span> &amp; <span className="text-brand-300">Yashika Garg</span> for <span className="text-brand-300">Razorpay AI Buildathon 2026</span>
       </div>
     </div>
   </footer>

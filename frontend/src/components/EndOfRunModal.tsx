@@ -43,14 +43,14 @@ export const EndOfRunModal: React.FC<Props> = ({ state, scenarios, onClose, onPl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
-      <div role="dialog" aria-modal="true" aria-labelledby="results-title" className="glass-card w-full max-w-3xl rounded-[24px] !border-gold-500/25 !bg-slate-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div role="dialog" aria-modal="true" aria-labelledby="results-title" className="glass-card w-full max-w-3xl rounded-[24px] !border-brand-500/25 !bg-slate-900 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-start justify-between gap-4 p-6 border-b border-slate-800">
           <div>
-            <div className="flex items-center gap-2 eyebrow">
+            <div className="eyebrow w-fit">
               <Trophy className="w-4 h-4" /> Week complete · {state.scenario.name}
             </div>
             <h2 id="results-title" className="mt-3 font-display text-2xl font-semibold text-slate-100">Revenue won back beyond doing nothing</h2>
-            <div className={`mt-3 text-6xl ${score.lift >= 0 ? 'gold-value' : 'font-display font-semibold text-rose-300'}`}>{formatINRWhole(score.lift)}</div>
+            <div className={`mt-3 text-6xl ${score.lift >= 0 ? 'metric-value' : 'font-display font-semibold text-rose-300'}`}>{formatINRWhole(score.lift)}</div>
           </div>
           <button onClick={onClose} aria-label="Close" className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
             <X className="w-5 h-5" />
@@ -79,15 +79,15 @@ export const EndOfRunModal: React.FC<Props> = ({ state, scenarios, onClose, onPl
             <div className="grid grid-cols-3 gap-2 text-center text-xs">
               <div className="rounded-xl bg-black/20 border border-slate-800 p-2.5">
                 <div className="stat-label !text-[0.62rem]">Incentive spent</div>
-                <div className="mt-1 font-display text-lg font-semibold text-gold-200">{formatINRWhole(score.incentive_spent)}</div>
+                <div className="mt-1 font-display text-lg font-semibold text-brand-200">{formatINRWhole(score.incentive_spent)}</div>
               </div>
               <div className="rounded-xl bg-black/20 border border-slate-800 p-2.5">
                 <div className="stat-label !text-[0.62rem]">Return</div>
-                <div className="mt-1 font-display text-lg font-semibold text-gold-200">{score.roi === null ? '—' : `${score.roi.toFixed(1)}×`}</div>
+                <div className="mt-1 font-display text-lg font-semibold text-brand-200">{score.roi === null ? '—' : `${score.roi.toFixed(1)}×`}</div>
               </div>
               <div className="rounded-xl bg-black/20 border border-slate-800 p-2.5">
                 <div className="stat-label !text-[0.62rem]">Lost for good</div>
-                <div className="mt-1 font-display text-lg font-semibold text-gold-200">{formatINRWhole(score.lost)}</div>
+                <div className="mt-1 font-display text-lg font-semibold text-brand-200">{formatINRWhole(score.lost)}</div>
               </div>
             </div>
 
@@ -110,7 +110,7 @@ export const EndOfRunModal: React.FC<Props> = ({ state, scenarios, onClose, onPl
                     <button
                       type="submit"
                       disabled={submitting || nickname.trim().length < 2}
-                      className="btn-gold px-4 py-2 text-sm disabled:opacity-50"
+                      className="btn-primary px-4 py-2 text-sm disabled:opacity-50"
                     >
                       <Send className="w-4 h-4" /> Submit
                     </button>
@@ -125,7 +125,7 @@ export const EndOfRunModal: React.FC<Props> = ({ state, scenarios, onClose, onPl
 
             <button
               onClick={onPlayAgain}
-              className="btn-gold w-full px-4 py-2.5 text-sm"
+              className="btn-primary w-full px-4 py-2.5 text-sm"
             >
               <RotateCcw className="w-4 h-4" /> Play again
             </button>

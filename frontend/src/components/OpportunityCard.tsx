@@ -68,7 +68,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
         ? 'border-rose-500/40 bg-rose-950/10'
         : isDone
         ? 'border-emerald-500/40 bg-emerald-950/10'
-        : '!border-gold-500/25'
+        : '!border-brand-500/25'
     }`}>
 
       {/* Header Info */}
@@ -214,7 +214,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           {isPending ? (
             <button
               onClick={onReviewClick}
-              className="btn-gold w-full sm:w-auto px-6 py-2.5 text-sm"
+              className="btn-primary w-full sm:w-auto px-6 py-2.5 text-sm"
             >
               <span>Review & Approve Action</span>
               <ArrowRight className="w-4 h-4" />

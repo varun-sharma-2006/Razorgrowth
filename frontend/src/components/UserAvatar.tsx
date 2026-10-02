@@ -12,7 +12,7 @@ export function UserAvatar({ user, size = 36 }: { user: Pick<User, 'name' | 'pic
         alt=""
         referrerPolicy="no-referrer"
         onError={() => setBroken(true)}
-        className="shrink-0 rounded-full border border-gold-500/40 object-cover"
+        className="shrink-0 rounded-full border border-brand-500/40 object-cover"
         style={style}
       />
     );
@@ -20,7 +20,7 @@ export function UserAvatar({ user, size = 36 }: { user: Pick<User, 'name' | 'pic
   return (
     <div
       aria-hidden
-      className="shrink-0 rounded-full border border-gold-500/40 bg-gold-500/10 flex items-center justify-center font-display text-gold-200"
+      className="shrink-0 rounded-full border border-brand-500/40 bg-brand-500/10 flex items-center justify-center font-display text-brand-200"
       style={style}
     >
       {user.name.charAt(0).toUpperCase()}

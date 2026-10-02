@@ -34,7 +34,7 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
 
   return (
     <div className="space-y-4">
-      <section className="glass-card rounded-[24px] !border-gold-500/25 p-4" data-tour="agent">
+      <section className="glass-card rounded-[24px] !border-brand-500/25 p-4" data-tour="agent">
         <div className="flex items-center justify-between gap-2 mb-3">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-100">
             <Sparkles className="w-4 h-4 text-indigo-400" /> AI recovery agent
@@ -43,7 +43,7 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
             onClick={onScan}
             disabled={scanning || finished || !!pending}
             title={pending ? 'Decide on the pending proposal first' : 'Ask the agent to analyse failures now'}
-            className="btn-gold px-3 py-1.5 text-xs disabled:opacity-40"
+            className="btn-primary px-3 py-1.5 text-xs disabled:opacity-40"
           >
             <ScanSearch className="w-3.5 h-3.5" />
             {scanning ? 'Analysing…' : 'Scan now'}
@@ -67,7 +67,7 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
               <span>{pending.ai_provider} · confidence {pending.confidence_score}%</span>
               <button
                 onClick={onReview}
-                className="btn-gold px-3 py-1.5 text-xs"
+                className="btn-primary px-3 py-1.5 text-xs"
               >
                 Review <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -93,9 +93,9 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
       <section className="glass-card rounded-[24px] p-4" data-tour="policy">
         <div className="flex items-center justify-between mb-2">
           <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-100">
-            <ShieldCheck className="w-4 h-4 text-gold-400" /> Safety policy
+            <ShieldCheck className="w-4 h-4 text-brand-400" /> Safety policy
           </h2>
-          <span className="font-display text-lg font-semibold text-gold-200" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatINRWhole(cap)}</span>
+          <span className="font-display text-lg font-semibold text-brand-200" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatINRWhole(cap)}</span>
         </div>
         <label htmlFor="cap" className="text-[11px] text-slate-400">Maximum incentive per campaign</label>
         <input

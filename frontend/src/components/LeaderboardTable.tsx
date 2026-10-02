@@ -35,7 +35,7 @@ export const LeaderboardTable: React.FC<Props> = ({ scenarios, initialScenario, 
         <div>
           <span className="eyebrow">This week{board ? ` · ${board.season}` : ''}</span>
           <h3 className="flex items-center gap-2 font-display text-[1.3rem] font-semibold text-slate-100 mt-1">
-            <Trophy className="w-5 h-5 text-gold-400" />
+            <Trophy className="w-5 h-5 text-brand-400" />
             Leaderboard
           </h3>
         </div>
@@ -58,7 +58,7 @@ export const LeaderboardTable: React.FC<Props> = ({ scenarios, initialScenario, 
 
       <div className="overflow-x-auto">
         <table className="w-full text-xs text-left" style={{ fontVariantNumeric: 'tabular-nums' }}>
-          <thead className="text-slate-500 uppercase tracking-[0.14em] text-[0.68rem] border-b border-gold-500/25">
+          <thead className="text-slate-500 uppercase tracking-[0.14em] text-[0.68rem] border-b border-brand-500/25">
             <tr>
               <th className="py-2 pr-3 font-semibold w-10">#</th>
               <th className="py-2 pr-3 font-semibold">Player</th>
@@ -73,12 +73,12 @@ export const LeaderboardTable: React.FC<Props> = ({ scenarios, initialScenario, 
               <tr><td colSpan={6} className="py-4 text-slate-500">No scores yet this week. Be the first.</td></tr>
             )}
             {[...rows, ...(youOutsideTop ? [board!.you!] : [])].map(e => (
-              <tr key={e.id} className={`transition hover:bg-gold-500/[0.06] ${e.id === highlightEntryId ? 'bg-gold-500/10' : ''}`}>
+              <tr key={e.id} className={`transition hover:bg-brand-500/[0.06] ${e.id === highlightEntryId ? 'bg-brand-500/10' : ''}`}>
                 <td className="py-2 pr-3 text-slate-400">{e.rank}</td>
                 <td className="py-2 pr-3 font-semibold text-white">
-                  {e.nickname}{e.id === highlightEntryId && <span className="ml-1.5 text-[10px] text-gold-300">(you)</span>}
+                  {e.nickname}{e.id === highlightEntryId && <span className="ml-1.5 text-[10px] text-brand-300">(you)</span>}
                 </td>
-                <td className="py-2 pr-3 text-right font-semibold text-gold-200">{formatINRWhole(e.score)}</td>
+                <td className="py-2 pr-3 text-right font-semibold text-brand-200">{formatINRWhole(e.score)}</td>
                 {!compact && <td className="py-2 pr-3 text-right text-slate-400">{formatINRWhole(e.incentive_spent)}</td>}
                 {!compact && <td className="py-2 pr-3 text-right text-slate-400">{e.incentive_spent ? `${e.roi.toFixed(1)}×` : '—'}</td>}
                 {!compact && <td className="py-2 text-right text-slate-400">{e.approvals} / {e.rejections}</td>}

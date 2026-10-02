@@ -1,44 +1,43 @@
 import animate from 'tailwindcss-animate'
 
-// Design system shared with the Algo Trade Simulator: deep ink surfaces, champagne gold,
-// ivory text, Playfair Display headings over Inter. Tailwind's stock palettes are remapped
-// so existing utility classes (slate-*, indigo-*, ...) render in this theme.
+// RazorGrowth design system: a midnight canvas with aurora light, electric violet → cyan accents,
+// Bricolage Grotesque headlines over Geist, and Geist Mono for live figures.
 
-const ink = {
-  // warm ivory text → deep ink surfaces
-  50: '#faf6ee',
-  100: '#eee8dc', // --text
-  200: '#ddd6c8',
-  300: '#c5beb0',
-  400: '#a29c90', // --text-muted
-  500: '#7a756c', // --text-faint
-  600: '#56534d',
-  700: '#33322f', // stronger lines
-  800: '#1f2028', // --line on ink
-  900: '#11131c', // --surface-solid
-  950: '#090a10' // --ink
+const night = {
+  // cool text → midnight surfaces
+  50: '#f7f8fc',
+  100: '#eceef8', // primary text
+  200: '#d4d8ea',
+  300: '#b3b9d3',
+  400: '#8a91b0', // secondary text
+  500: '#646b8a', // muted
+  600: '#454b66',
+  700: '#2c3150', // strong lines
+  800: '#1a1e36', // hairlines
+  900: '#0f1224', // raised surface
+  950: '#080a17' // canvas
 }
 
-const gold = {
-  50: '#fdf8ec',
-  100: '#f9ecd0',
-  200: '#f3dca6', // --gold-light
-  300: '#ebcc8c',
-  400: '#e3c27f',
-  500: '#d4af6a', // --gold
-  600: '#b8924e',
-  700: '#9c7535', // --gold-deep
-  800: '#7a5a27',
-  900: '#4f3a19',
-  950: '#2e220f'
+const brand = {
+  50: '#f2efff',
+  100: '#e6e0ff',
+  200: '#cfc4ff',
+  300: '#b3a2ff',
+  400: '#977fff',
+  500: '#7c5cff', // electric violet
+  600: '#6a45f5',
+  700: '#5634d6',
+  800: '#4129a6',
+  900: '#2c1d70',
+  950: '#170f3d'
 }
 
-const info = {
-  200: '#cfe0ff',
-  300: '#a9c7ff',
-  400: '#8fb7ff', // --info
-  500: '#6f9be8',
-  600: '#5b8fe6'
+const aqua = {
+  200: '#a5f0fc',
+  300: '#67e3f9',
+  400: '#22d3ee',
+  500: '#0ea5c6',
+  600: '#0b86a3'
 }
 
 /** @type {import('tailwindcss').Config} */
@@ -51,25 +50,45 @@ export default {
   theme: {
     extend: {
       colors: {
-        slate: ink,
-        indigo: gold,
-        violet: gold,
-        purple: gold,
-        cyan: info,
-        sky: info,
-        emerald: { 300: '#8fe3b9', 400: '#5fd49a', 500: '#3fbf82', 600: '#2f9e6a', 950: '#0d2a1d' }, // --up
-        rose: { 200: '#f8c4c4', 300: '#f6b3b3', 400: '#f07a7a', 500: '#e05f5f', 950: '#2c1012' }, // --down
-        ink,
-        gold
+        slate: night,
+        night,
+        brand,
+        indigo: brand,
+        violet: brand,
+        purple: brand,
+        cyan: aqua,
+        sky: aqua,
+        aqua,
+        emerald: { 300: '#6ee7b7', 400: '#34d399', 500: '#10b981', 600: '#059669', 950: '#022c22' },
+        rose: { 200: '#fecdd3', 300: '#fda4af', 400: '#fb7185', 500: '#f43f5e', 950: '#2a0a12' }
       },
       fontFamily: {
-        sans: ['"Inter Variable"', 'Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
-        display: ['"Playfair Display Variable"', '"Playfair Display"', 'Georgia', '"Times New Roman"', 'serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
+        sans: ['"Geist Variable"', 'Geist', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        display: ['"Bricolage Grotesque Variable"', '"Bricolage Grotesque"', '"Geist Variable"', 'sans-serif'],
+        mono: ['"Geist Mono Variable"', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace']
       },
-      boxShadow: {
-        gold: '0 10px 30px -10px rgba(212, 175, 106, 0.55)',
-        surface: '0 24px 60px -24px rgba(0, 0, 0, 0.75), 0 1px 0 rgba(255, 255, 255, 0.03) inset'
+      keyframes: {
+        'float-y': {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-8px)' }
+        },
+        'aurora': {
+          '0%, 100%': { transform: 'translate3d(0,0,0) scale(1)' },
+          '50%': { transform: 'translate3d(2%, -3%, 0) scale(1.06)' }
+        },
+        'feed-in': {
+          '0%': { opacity: '0', transform: 'translateY(14px) scale(0.98)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' }
+        },
+        'ping-soft': {
+          '75%, 100%': { transform: 'scale(2.2)', opacity: '0' }
+        }
+      },
+      animation: {
+        'float-y': 'float-y 6s ease-in-out infinite',
+        'aurora': 'aurora 18s ease-in-out infinite',
+        'feed-in': 'feed-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both',
+        'ping-soft': 'ping-soft 1.8s cubic-bezier(0, 0, 0.2, 1) infinite'
       }
     },
   },

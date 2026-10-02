@@ -97,7 +97,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
-      <div className="glass-card rounded-[24px] max-w-2xl w-full !border-gold-500/25 !bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="glass-card rounded-[24px] max-w-2xl w-full !border-brand-500/25 !bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
@@ -343,7 +343,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
               <button
                 onClick={approve}
                 disabled={submitting || isPolicyBlocked || !budgetValid || linkCount === 0}
-                className="btn-gold px-6 py-2.5 text-xs"
+                className="btn-primary px-6 py-2.5 text-xs"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>{submitting ? 'Executing via Razorpay...' : modified ? `Approve with changes (${linkCount} links)` : 'Approve & Execute Action'}</span>
