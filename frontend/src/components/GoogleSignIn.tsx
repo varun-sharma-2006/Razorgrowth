@@ -83,7 +83,9 @@ export function GoogleSignIn({ clientId, onCredential, disabled }: Props) {
 
   return (
     <div aria-busy={disabled} className={`flex flex-col items-center gap-3 ${disabled ? 'opacity-60 pointer-events-none' : ''}`}>
-      <div ref={container} className="min-h-[44px]" />
+      {/* Google's button is an iframe; on a dark page the browser paints it an opaque white box
+          unless its host opts into the light scheme the iframe uses. */}
+      <div ref={container} className="min-h-[44px]" style={{ colorScheme: 'light' }} />
       {loadError && (
         <p role="alert" className="text-xs text-rose-300 text-center">{loadError}</p>
       )}
