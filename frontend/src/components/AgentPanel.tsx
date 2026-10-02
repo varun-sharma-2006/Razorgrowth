@@ -34,16 +34,16 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-indigo-500/30 bg-slate-900/80 p-4" data-tour="agent">
+      <section className="glass-card rounded-[24px] !border-gold-500/25 p-4" data-tour="agent">
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-white">
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-100">
             <Sparkles className="w-4 h-4 text-indigo-400" /> AI recovery agent
           </h2>
           <button
             onClick={onScan}
             disabled={scanning || finished || !!pending}
             title={pending ? 'Decide on the pending proposal first' : 'Ask the agent to analyse failures now'}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold disabled:opacity-40"
+            className="btn-gold px-3 py-1.5 text-xs disabled:opacity-40"
           >
             <ScanSearch className="w-3.5 h-3.5" />
             {scanning ? 'Analysing…' : 'Scan now'}
@@ -67,7 +67,7 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
               <span>{pending.ai_provider} · confidence {pending.confidence_score}%</span>
               <button
                 onClick={onReview}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold"
+                className="btn-gold px-3 py-1.5 text-xs"
               >
                 Review <ArrowRight className="w-3.5 h-3.5" />
               </button>
@@ -90,12 +90,12 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
         )}
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4" data-tour="policy">
+      <section className="glass-card rounded-[24px] p-4" data-tour="policy">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="flex items-center gap-2 text-sm font-bold text-white">
-            <ShieldCheck className="w-4 h-4 text-cyan-400" /> Safety policy
+          <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-100">
+            <ShieldCheck className="w-4 h-4 text-gold-400" /> Safety policy
           </h2>
-          <span className="text-sm font-bold text-cyan-300" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatINRWhole(cap)}</span>
+          <span className="font-display text-lg font-semibold text-gold-200" style={{ fontVariantNumeric: 'tabular-nums' }}>{formatINRWhole(cap)}</span>
         </div>
         <label htmlFor="cap" className="text-[11px] text-slate-400">Maximum incentive per campaign</label>
         <input
@@ -120,8 +120,8 @@ export const AgentPanel: React.FC<Props> = ({ state, latestAction, events, scann
         </p>
       </section>
 
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-        <h2 className="flex items-center gap-2 text-sm font-bold text-white mb-2">
+      <section className="glass-card rounded-[24px] p-4">
+        <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-slate-100 mb-2">
           <Megaphone className="w-4 h-4 text-slate-400" /> Store news
         </h2>
         <ul className="space-y-2 max-h-44 overflow-y-auto pr-1" aria-live="polite">

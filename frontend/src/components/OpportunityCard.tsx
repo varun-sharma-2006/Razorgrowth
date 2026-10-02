@@ -42,11 +42,11 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
 }) => {
   if (!action) {
     return (
-      <div className="glass-card rounded-2xl p-8 text-center border border-slate-800 bg-slate-900/40" id="opportunity-card-section">
+      <div className="glass-card rounded-[24px] p-8 text-center" id="opportunity-card-section">
         <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mx-auto mb-3 border border-indigo-500/20">
           <Sparkles className="w-6 h-6 animate-pulse" />
         </div>
-        <h3 className="text-lg font-bold text-white">No Active AI Opportunity Scanned</h3>
+        <h3 className="font-display text-xl font-semibold text-slate-100">No Active AI Opportunity Scanned</h3>
         <p className="text-slate-400 text-sm mt-1 max-w-md mx-auto">
           Click "Scan for Opportunities" above to trigger RazorGrowth's AI payment failure analysis and generate an actionable recovery proposal.
         </p>
@@ -68,7 +68,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
         ? 'border-rose-500/40 bg-rose-950/10'
         : isDone
         ? 'border-emerald-500/40 bg-emerald-950/10'
-        : 'border-indigo-500/30 bg-slate-900/80 shadow-xl shadow-indigo-500/10'
+        : '!border-gold-500/25'
     }`}>
 
       {/* Header Info */}
@@ -91,7 +91,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
                 </span>
               )}
             </div>
-            <h2 className="text-xl font-extrabold text-white mt-0.5">{opportunity?.title ?? action.title}</h2>
+            <h2 className="font-display text-2xl font-semibold text-slate-100 mt-0.5">{opportunity?.title ?? action.title}</h2>
           </div>
         </div>
 
@@ -214,7 +214,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           {isPending ? (
             <button
               onClick={onReviewClick}
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-6 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm shadow-lg shadow-indigo-600/30 transition transform hover:-translate-y-0.5 active:translate-y-0"
+              className="btn-gold w-full sm:w-auto px-6 py-2.5 text-sm"
             >
               <span>Review & Approve Action</span>
               <ArrowRight className="w-4 h-4" />
@@ -222,7 +222,7 @@ export const OpportunityCard: React.FC<OpportunityCardProps> = ({
           ) : (
             <button
               onClick={onReviewClick}
-              className="w-full sm:w-auto inline-flex items-center justify-center space-x-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition"
+              className="btn-ghost w-full sm:w-auto px-5 py-2.5 text-xs"
             >
               <Eye className="w-4 h-4" />
               <span>Inspect Action Details & Policy</span>

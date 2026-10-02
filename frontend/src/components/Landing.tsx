@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Zap, Play, RotateCcw, ShieldCheck, Wallet, TrendingUp, Gauge } from 'lucide-react';
+import { Play, RotateCcw, ShieldCheck, Wallet, Gauge, TrendingUp } from 'lucide-react';
 import { Scenario, SimState } from '../types';
 import { formatINRWhole } from '../utils/format';
 import { LeaderboardTable } from './LeaderboardTable';
+import { LogoMark } from './LogoMark';
 
 interface Props {
   scenarios: Scenario[];
@@ -13,10 +14,36 @@ interface Props {
 }
 
 const DIFFICULTY_CLASS: Record<string, string> = {
-  Easy: 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30',
-  Medium: 'bg-amber-500/10 text-amber-300 border-amber-500/30',
-  Hard: 'bg-rose-500/10 text-rose-300 border-rose-500/30',
-  Guided: 'bg-slate-700/40 text-slate-300 border-slate-600'
+  Easy: 'text-emerald-300 border-emerald-400/30 bg-emerald-400/10',
+  Medium: 'text-amber-300 border-amber-400/30 bg-amber-400/10',
+  Hard: 'text-rose-300 border-rose-400/30 bg-rose-400/10',
+  Guided: 'text-slate-300 border-slate-600 bg-white/[0.03]'
+};
+
+/** Decorative hero chart: recovered revenue with the agent (gold) pulling away from doing nothing (blue). */
+const HeroChart: React.FC = () => {
+  const withAgent = [4, 6, 9, 13, 16, 22, 27, 31, 38, 44, 49, 57, 63, 70];
+  const baseline = [4, 5, 7, 9, 11, 13, 15, 16, 18, 20, 21, 23, 25, 26];
+  const W = 560, H = 170, max = 76;
+  const pt = (v: number, i: number) => `${(i / (withAgent.length - 1)) * W},${H - (v / max) * H}`;
+  const line = (vals: number[]) => vals.map((v, i) => `${i ? 'L' : 'M'}${pt(v, i)}`).join(' ');
+  return (
+    <svg viewBox={`0 0 ${W} ${H + 8}`} className="w-full max-w-[560px] h-auto" aria-hidden="true">
+      <defs>
+        <linearGradient id="hero-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="rgba(212,175,106,0.30)" />
+          <stop offset="100%" stopColor="rgba(212,175,106,0)" />
+        </linearGradient>
+      </defs>
+      {[0.25, 0.5, 0.75].map(f => (
+        <line key={f} x1={0} x2={W} y1={H * f} y2={H * f} stroke="rgba(238,232,220,0.05)" />
+      ))}
+      <path d={`${line(withAgent)} L${W},${H} L0,${H} Z`} fill="url(#hero-fill)" />
+      <path d={line(baseline)} fill="none" stroke="#5b8fe6" strokeWidth={2} strokeDasharray="5 5" strokeLinecap="round" />
+      <path d={line(withAgent)} fill="none" stroke="#e3c27f" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx={W} cy={H - (withAgent[withAgent.length - 1] / max) * H} r={4.5} fill="#f6dfa8" stroke="#0b0d14" strokeWidth={2} />
+    </svg>
+  );
 };
 
 export const Landing: React.FC<Props> = ({ scenarios, resumable, starting, onStart, onResume }) => {
@@ -24,119 +51,136 @@ export const Landing: React.FC<Props> = ({ scenarios, resumable, starting, onSta
   const [nickname, setNickname] = useState('');
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-10 space-y-10">
-      <header className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-cyan-400 p-[2px]">
-          <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-            <Zap className="w-5 h-5 text-indigo-400" />
+    <div className="max-w-[1240px] mx-auto px-4 sm:px-8 py-10 lg:py-14 space-y-14">
+      <section className="grid lg:grid-cols-[1.1fr_0.9fr] gap-10 lg:gap-16 items-center">
+        {/* Left: story */}
+        <div className="space-y-7">
+          <div className="flex items-center gap-3">
+            <LogoMark size={42} />
+            <span className="font-display text-xl font-semibold text-slate-100">RazorGrowth Simulator</span>
           </div>
-        </div>
-        <div>
-          <div className="text-xl font-bold text-white">RazorGrowth Simulator</div>
-          <div className="text-xs text-slate-400">Run a store. Command a permissioned AI agent. Recover lost revenue.</div>
-        </div>
-      </header>
 
-      <section className="grid lg:grid-cols-5 gap-8 items-start">
-        <div className="lg:col-span-3 space-y-6">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-extrabold text-white leading-tight">
-              One week. ₹20,000 in incentives.<br />How much lost revenue can you win back?
+          <div className="space-y-5">
+            <span className="eyebrow">Permissioned AI revenue lab</span>
+            <h1 className="font-display font-semibold text-slate-100 leading-[1.04] text-[clamp(2.5rem,5.4vw,4.3rem)]">
+              Win back lost revenue <em className="italic font-medium text-gold-400">before</em> customers walk away.
             </h1>
-            <p className="mt-3 text-sm text-slate-400 max-w-2xl">
-              Payments stream into your store and some fail. Your AI agent proposes Razorpay recovery campaigns,
-              but it can't spend a rupee without your approval, and a deterministic policy engine blocks anything unsafe.
-              Your score is the revenue you recover <span className="text-slate-200">beyond what customers would have paid back anyway</span>.
+            <p className="text-base sm:text-lg text-slate-400 max-w-[52ch] leading-relaxed">
+              Run a store for a simulated week. Payments fail; your AI agent proposes Razorpay recovery campaigns,
+              but it can't spend a rupee without your approval, and a policy engine blocks anything unsafe.
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-3 text-xs">
+          <HeroChart />
+
+          <div className="grid grid-cols-3 gap-3 max-w-[560px]">
             {[
-              { icon: <Gauge className="w-4 h-4 text-indigo-400" />, title: 'Play at your speed', text: 'Pause, 1×, 2×, 5×, 10×. A week takes about 3 minutes at 1×.' },
-              { icon: <Wallet className="w-4 h-4 text-amber-400" />, title: 'Spend wisely', text: 'Discounts only cost you when a customer pays, but bigger ones get wasted on people who would have paid anyway.' },
-              { icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />, title: 'You stay in charge', text: 'Approve, reject, or approve with changes. Every decision lands in the audit trail.' }
-            ].map(card => (
-              <div key={card.title} className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5">
-                <div className="flex items-center gap-2 font-semibold text-white mb-1">{card.icon}{card.title}</div>
-                <p className="text-slate-400 leading-relaxed">{card.text}</p>
+              ['₹20K', 'Incentive wallet'],
+              ['7 days', 'Simulated week'],
+              [String(scenarios.length || 5), 'Scenarios']
+            ].map(([value, label]) => (
+              <div key={label} className="glass-card rounded-2xl px-4 py-4">
+                <div className="gold-value text-2xl sm:text-[1.7rem]">{value}</div>
+                <div className="stat-label mt-2">{label}</div>
               </div>
             ))}
           </div>
-
-          {resumable && (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4">
-              <div className="text-sm text-indigo-100">
-                You have a run in progress: <span className="font-semibold">{resumable.scenario.name}</span>, {resumable.clock},
-                score {formatINRWhole(resumable.score.lift)}.
-              </div>
-              <button
-                onClick={onResume}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold"
-              >
-                <RotateCcw className="w-4 h-4" /> Resume
-              </button>
-            </div>
-          )}
-
-          <div>
-            <h2 className="text-sm font-bold text-white mb-3">Choose a scenario</h2>
-            <div className="grid sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Scenario">
-              {scenarios.map(s => (
-                <button
-                  key={s.key}
-                  role="radio"
-                  aria-checked={selected === s.key}
-                  onClick={() => setSelected(s.key)}
-                  className={`text-left rounded-xl border p-4 transition ${
-                    selected === s.key
-                      ? 'border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10'
-                      : 'border-slate-800 bg-slate-900/60 hover:border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="font-bold text-white text-sm">{s.name}</span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${DIFFICULTY_CLASS[s.difficulty] ?? DIFFICULTY_CLASS.Guided}`}>
-                      {s.ranked ? s.difficulty : 'Practice'}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-400 leading-relaxed">{s.description}</p>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <form
-            className="flex flex-col sm:flex-row gap-3"
-            onSubmit={e => { e.preventDefault(); onStart(selected, nickname.trim()); }}
-          >
-            <label className="flex-1">
-              <span className="sr-only">Nickname (optional)</span>
-              <input
-                value={nickname}
-                onChange={e => setNickname(e.target.value)}
-                maxLength={24}
-                placeholder="Your nickname (optional, for the leaderboard)"
-                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-            </label>
-            <button
-              type="submit"
-              disabled={starting || !scenarios.length}
-              className="inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold shadow-lg shadow-indigo-500/25 disabled:opacity-50"
-            >
-              <Play className="w-4 h-4 fill-white" />
-              {starting ? 'Opening your store…' : resumable ? 'Start a new run' : 'Start simulation'}
-            </button>
-          </form>
         </div>
 
-        <aside className="lg:col-span-2 rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-          {scenarios.length > 0 && <LeaderboardTable scenarios={scenarios} compact />}
-          <p className="mt-4 flex items-start gap-2 text-[11px] text-slate-500">
-            <TrendingUp className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            Everyone playing a scenario this week gets the same customers and failures, so scores are directly comparable.
+        {/* Right: start card */}
+        <div className="space-y-4">
+          <div className="glass-card rounded-[24px] p-6 sm:p-8">
+            <div className="flex flex-col items-center text-center">
+              <span style={{ filter: 'drop-shadow(0 8px 24px rgba(212,175,106,0.35))' }}><LogoMark size={52} /></span>
+              <span className="eyebrow mt-4">New simulation</span>
+              <h2 className="font-display text-[1.85rem] font-semibold text-slate-100 mt-2">Open your store</h2>
+              <p className="text-sm text-slate-400 mt-1.5">No sign-up. Your run is private to this browser.</p>
+            </div>
+
+            {resumable && (
+              <div className="mt-6 flex items-center justify-between gap-3 rounded-2xl border border-gold-500/30 bg-gold-500/[0.07] p-3.5">
+                <div className="text-sm text-slate-200">
+                  <div className="font-semibold text-gold-200">{resumable.scenario.name}</div>
+                  <div className="text-xs text-slate-400">{resumable.clock} · score {formatINRWhole(resumable.score.lift)}</div>
+                </div>
+                <button onClick={onResume} className="btn-ghost px-4 py-2 text-sm">
+                  <RotateCcw className="w-4 h-4" /> Resume
+                </button>
+              </div>
+            )}
+
+            <form className="mt-6 space-y-4" onSubmit={e => { e.preventDefault(); onStart(selected, nickname.trim()); }}>
+              <fieldset>
+                <legend className="stat-label mb-2">Scenario</legend>
+                <div className="space-y-2" role="radiogroup" aria-label="Scenario">
+                  {scenarios.map(s => {
+                    const on = selected === s.key;
+                    return (
+                      <button
+                        type="button"
+                        key={s.key}
+                        role="radio"
+                        aria-checked={on}
+                        onClick={() => setSelected(s.key)}
+                        className={`w-full text-left rounded-xl border px-3.5 py-2.5 transition ${
+                          on ? 'border-gold-500/50 bg-gold-500/[0.08]' : 'border-slate-800 hover:border-gold-500/25 bg-black/20'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className={`text-sm font-semibold ${on ? 'text-gold-200' : 'text-slate-100'}`}>{s.name}</span>
+                          <span className={`text-[0.65rem] font-semibold tracking-[0.08em] uppercase px-2 py-0.5 rounded-full border ${DIFFICULTY_CLASS[s.difficulty] ?? DIFFICULTY_CLASS.Guided}`}>
+                            {s.ranked ? s.difficulty : 'Practice'}
+                          </span>
+                        </div>
+                        {on && <p className="mt-1 text-xs text-slate-400 leading-relaxed">{s.description}</p>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              <label className="block">
+                <span className="stat-label block mb-2">Nickname (optional)</span>
+                <input
+                  value={nickname}
+                  onChange={e => setNickname(e.target.value)}
+                  maxLength={24}
+                  placeholder="Shown on the leaderboard"
+                  className="w-full rounded-[10px] border border-slate-800 bg-black/40 px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 transition hover:border-gold-500/25 focus:outline-none focus:border-gold-500/50 focus:ring-[3px] focus:ring-gold-500/15"
+                />
+              </label>
+
+              <button type="submit" disabled={starting || !scenarios.length} className="btn-gold w-full py-3 text-[0.95rem]">
+                <Play className="w-4 h-4 fill-current" />
+                {starting ? 'Opening your store…' : resumable ? 'Start a new run' : 'Start simulation'}
+              </button>
+            </form>
+          </div>
+          <p className="text-center text-[0.68rem] tracking-[0.16em] uppercase text-slate-500">
+            Simulated customers · demo payment gateway
           </p>
-        </aside>
+        </div>
+      </section>
+
+      <section className="grid md:grid-cols-3 gap-4">
+        {[
+          { icon: <Gauge className="w-4 h-4" />, title: 'Play at your speed', text: 'Pause, 1×, 2×, 5×, 10×. A full week takes about three minutes at 1×.' },
+          { icon: <Wallet className="w-4 h-4" />, title: 'Spend wisely', text: 'Discounts only cost you when a customer pays, but they are wasted on customers who would have paid anyway.' },
+          { icon: <ShieldCheck className="w-4 h-4" />, title: 'You stay in charge', text: 'Approve, reject, or approve with changes. Every decision lands in the audit trail.' }
+        ].map(card => (
+          <div key={card.title} className="glass-card rounded-2xl p-5">
+            <div className="flex items-center gap-2 text-gold-400">{card.icon}<span className="eyebrow !tracking-[0.16em]">{card.title}</span></div>
+            <p className="mt-2 text-sm text-slate-400 leading-relaxed">{card.text}</p>
+          </div>
+        ))}
+      </section>
+
+      <section className="glass-card rounded-[24px] p-6 sm:p-7">
+        {scenarios.length > 0 && <LeaderboardTable scenarios={scenarios} />}
+        <p className="mt-4 flex items-start gap-2 text-xs text-slate-500">
+          <TrendingUp className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          Everyone playing a scenario this week gets the same customers and failures, so scores are directly comparable.
+        </p>
       </section>
     </div>
   );

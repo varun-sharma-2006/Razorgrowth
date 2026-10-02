@@ -38,10 +38,10 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
   };
 
   return (
-    <div className="glass-card rounded-2xl p-6 border border-slate-800 bg-slate-900/60">
+    <div className="glass-card rounded-[24px] p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-bold text-white flex items-center space-x-2">
+          <h2 className="font-display text-[1.3rem] font-semibold text-slate-100 flex items-center space-x-2">
             <AlertCircle className="w-5 h-5 text-rose-400" />
             <span>Failed Payment Transaction Telemetry</span>
           </h2>

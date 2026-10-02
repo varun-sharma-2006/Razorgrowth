@@ -63,7 +63,8 @@ export const RecoveryRaceChart: React.FC<Props> = ({ series, runTicks }) => {
   // Direct end labels only when they don't collide; the legend always carries identity.
   const labelsFit = last && Math.abs(y(last.withAgent) - y(last.baseline)) >= 16;
   const narrow = plotW / (runTicks / 24) < 52; // shorten day labels so they never collide
-  const days = Array.from({ length: Math.floor(runTicks / 24) + 1 }, (_, i) => i * 24);
+  // On narrow charts the final 'End' tick would collide with the last day label, so drop it.
+  const days = Array.from({ length: Math.floor(runTicks / 24) + (narrow ? 0 : 1) }, (_, i) => i * 24);
 
   return (
     <div>

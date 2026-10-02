@@ -97,7 +97,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
-      <div className="glass-card rounded-2xl max-w-2xl w-full border border-indigo-500/30 bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="glass-card rounded-[24px] max-w-2xl w-full !border-gold-500/25 !bg-slate-900 shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
 
         {/* Header */}
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
@@ -106,7 +106,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-bold text-white text-base">Permissioned Action Approval Screen</h3>
+              <h3 className="font-display text-lg font-semibold text-slate-100">Permissioned Action Approval</h3>
               <p className="text-xs text-slate-400">Explicit merchant authorization required before Razorpay REST execution</p>
             </div>
           </div>
@@ -343,11 +343,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
               <button
                 onClick={approve}
                 disabled={submitting || isPolicyBlocked || !budgetValid || linkCount === 0}
-                className={`inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 disabled:hover:translate-y-0 ${
-                  isPolicyBlocked
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30 disabled:opacity-60'
-                }`}
+                className="btn-gold px-6 py-2.5 text-xs"
               >
                 <CheckCircle2 className="w-4 h-4" />
                 <span>{submitting ? 'Executing via Razorpay...' : modified ? `Approve with changes (${linkCount} links)` : 'Approve & Execute Action'}</span>

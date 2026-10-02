@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Landing } from './components/Landing';
 import { SimTopBar, Speed } from './components/SimTopBar';
+import { AppSidebar, Page } from './components/AppSidebar';
+import { LogoMark } from './components/LogoMark';
+import { LeaderboardTable } from './components/LeaderboardTable';
 import { KpiStrip } from './components/KpiStrip';
 import { AgentPanel } from './components/AgentPanel';
 import { RecoveryRaceChart } from './components/charts/RecoveryRaceChart';
@@ -16,9 +19,8 @@ import { api, errorMessage, isConflict, isUnauthorized, sandboxToken } from './s
 import {
   ActionItem, AdvanceResponse, AuditEventItem, DecisionOptions, PaymentItem, Scenario, ScenarioEvent, SimState, TickStat
 } from './types';
-import { Info, XCircle, Megaphone, Rocket, ListChecks, History, FlaskConical, CreditCard } from 'lucide-react';
+import { Info, XCircle, Megaphone, Rocket } from 'lucide-react';
 
-type Tab = 'campaigns' | 'payments' | 'audit' | 'lab';
 const TICK_INTERVAL_MS = 1000;
 
 export function App() {
@@ -43,11 +45,11 @@ export function App() {
   const [reviewAction, setReviewAction] = useState<ActionItem | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [showTour, setShowTour] = useState(false);
-  const [tab, setTab] = useState<Tab>('campaigns');
+  const [page, setPage] = useState<Page>('overview');
 
   const inFlight = useRef(false);
-  const tabRef = useRef(tab);
-  tabRef.current = tab;
+  const pageRef = useRef(page);
+  pageRef.current = page;
 
   const backToLanding = useCallback((message?: string) => {
     sandboxToken.clear();
@@ -65,7 +67,7 @@ export function App() {
     setError(errorMessage(err));
   }, [backToLanding]);
 
-  const refreshLists = useCallback(async (withPayments = tabRef.current === 'payments') => {
+  const refreshLists = useCallback(async (withPayments = pageRef.current === 'payments') => {
     const [acts, aud, pays] = await Promise.all([
       api.getActions(),
       api.getAuditEvents(),
@@ -163,8 +165,8 @@ export function App() {
   }, [view, sim?.status, reviewAction, showResults]);
 
   useEffect(() => {
-    if (tab === 'payments' && view === 'sim') api.getPayments().then(setPayments).catch(handleError);
-  }, [tab, view, handleError]);
+    if (page === 'payments' && view === 'sim') api.getPayments().then(setPayments).catch(handleError);
+  }, [page, view, handleError]);
 
   const start = async (scenario: string, nickname: string) => {
     setStarting(true);
@@ -176,7 +178,7 @@ export function App() {
       setEvents([]);
       setNotice(null);
       setShowResults(false);
-      setTab('campaigns');
+      setPage('overview');
       await loadSim();
       setView('sim');
       if (!tourDone()) setShowTour(true);
@@ -262,13 +264,18 @@ export function App() {
   );
 
   if (view === 'loading') {
-    return <div className="min-h-screen bg-[#0b0f19] flex items-center justify-center text-sm text-slate-400">Opening RazorGrowth…</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-5 text-sm tracking-[0.04em] text-slate-400">
+        <LogoMark size={56} breathe />
+        Opening RazorGrowth…
+      </div>
+    );
   }
 
   if (view === 'landing' || !sim) {
     return (
-      <div className="min-h-screen bg-[#0b0f19] text-slate-100">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-4 space-y-3">{banners}</div>
+      <div className="min-h-screen text-slate-100">
+        <div className="max-w-[1240px] mx-auto px-4 sm:px-8 pt-4 space-y-3">{banners}</div>
         <Landing
           scenarios={scenarios}
           resumable={sim && sim.status === 'RUNNING' ? sim : null}
@@ -282,100 +289,106 @@ export function App() {
   }
 
   const latestAction = actions[0] ?? null;
-  const tabs: { key: Tab; label: string; icon: JSX.Element }[] = [
-    { key: 'campaigns', label: `Campaigns (${actions.length})`, icon: <ListChecks className="w-4 h-4" /> },
-    { key: 'payments', label: `Failed payments (${sim.open_failed_count} open)`, icon: <CreditCard className="w-4 h-4" /> },
-    { key: 'audit', label: 'Audit trail', icon: <History className="w-4 h-4" /> },
-    { key: 'lab', label: 'Safety lab', icon: <FlaskConical className="w-4 h-4" /> }
-  ];
+  const header = PAGE_HEADERS[page];
 
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-slate-100 flex flex-col selection:bg-indigo-500 selection:text-white">
-      <SimTopBar
+    <div className="min-h-screen text-slate-100 flex flex-col lg:flex-row">
+      <AppSidebar
         state={sim}
-        playing={playing}
-        speed={speed}
-        onTogglePlay={() => setPlaying(p => !p)}
-        onSpeed={setSpeed}
-        onToggleAutoPilot={toggleAutoPilot}
+        page={page}
+        campaignCount={actions.length}
+        onNavigate={setPage}
         onExit={() => { setPlaying(false); setView('landing'); }}
       />
 
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <div className="flex-1 min-w-0 px-4 sm:px-[clamp(1.25rem,4vw,3.25rem)] pt-5 lg:pt-8 pb-16 space-y-7">
+        <SimTopBar
+          state={sim}
+          playing={playing}
+          speed={speed}
+          onTogglePlay={() => setPlaying(p => !p)}
+          onSpeed={setSpeed}
+          onToggleAutoPilot={toggleAutoPilot}
+          onExit={() => { setPlaying(false); setView('landing'); }}
+        />
+
+        <header key={page} className="animate-in fade-in slide-in-from-bottom-1 duration-500">
+          <span className="eyebrow">{header.eyebrow === 'scenario' ? sim.scenario.name : header.eyebrow}</span>
+          <h1 className="font-display font-semibold text-slate-100 leading-[1.12] text-[clamp(2rem,3.4vw,2.75rem)] mt-2">{header.title}</h1>
+          <p className="mt-2 text-slate-400 max-w-[62ch]">{header.lede}</p>
+        </header>
+
         {banners}
 
-        {sim.current_tick === 0 && !playing && (
-          <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
-            <Rocket className="w-4 h-4 shrink-0" />
-            Your store is ready. Press <span className="font-bold">Play</span> (or Space) to start the week.
+        {page === 'overview' && (
+          <div className="space-y-7 animate-in fade-in duration-300">
+            {sim.current_tick === 0 && !playing && (
+              <div className="flex items-center gap-3 rounded-2xl border border-gold-500/30 bg-gold-500/[0.07] px-4 py-3 text-sm text-gold-100">
+                <Rocket className="w-4 h-4 shrink-0 text-gold-400" />
+                Your store is ready. Press <span className="font-semibold text-gold-200">Play</span> (or Space) to start the week.
+              </div>
+            )}
+
+            <KpiStrip state={sim} />
+
+            <div className="grid xl:grid-cols-12 gap-6">
+              <div className="xl:col-span-8 min-w-0 space-y-6">
+                <section className="glass-card rounded-[24px] p-6">
+                  <h2 className="font-display text-[1.3rem] font-semibold text-slate-100">Recovered revenue</h2>
+                  <p className="text-sm text-slate-500 mb-4">You vs doing nothing. The gap between the lines is your score.</p>
+                  <RecoveryRaceChart series={series} runTicks={sim.run_ticks} />
+                </section>
+                <section className="glass-card rounded-[24px] p-6">
+                  <h2 className="font-display text-[1.3rem] font-semibold text-slate-100">Failed payments</h2>
+                  <p className="text-sm text-slate-500 mb-4">Every 6 hours, by payment method. Triangles mark store news.</p>
+                  <FailuresChart series={series} runTicks={sim.run_ticks} events={events} />
+                </section>
+              </div>
+              <aside className="xl:col-span-4 min-w-0 space-y-4">
+                <AgentPanel
+                  state={sim}
+                  latestAction={latestAction}
+                  events={events}
+                  scanning={scanning}
+                  onScan={scan}
+                  onReview={() => latestAction && openReview(latestAction)}
+                  onCapChange={changeCap}
+                />
+                <label className="flex items-center gap-2 px-1 text-xs text-slate-400">
+                  <input type="checkbox" checked={pauseOnProposal} onChange={e => setPauseOnProposal(e.target.checked)} />
+                  Pause when the agent proposes something
+                </label>
+              </aside>
+            </div>
           </div>
         )}
 
-        <KpiStrip state={sim} />
-
-        <div className="grid lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 min-w-0 space-y-6">
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-sm font-bold text-white">Recovered revenue: you vs doing nothing</h2>
-              <p className="text-xs text-slate-400 mb-3">The gap between the lines is your score.</p>
-              <RecoveryRaceChart series={series} runTicks={sim.run_ticks} />
-            </section>
-            <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5">
-              <h2 className="text-sm font-bold text-white">Failed payments every 6 hours</h2>
-              <p className="text-xs text-slate-400 mb-3">By payment method. Triangles mark store news.</p>
-              <FailuresChart series={series} runTicks={sim.run_ticks} events={events} />
-            </section>
-          </div>
-          <aside className="lg:col-span-4 min-w-0 space-y-4">
-            <AgentPanel
-              state={sim}
-              latestAction={latestAction}
-              events={events}
-              scanning={scanning}
-              onScan={scan}
-              onReview={() => latestAction && openReview(latestAction)}
-              onCapChange={changeCap}
+        {page === 'campaigns' && <CampaignsTab actions={actions} onReview={openReview} />}
+        {page === 'payments' && <FailedPaymentsList payments={payments} />}
+        {page === 'audit' && <AuditTimeline events={audit} onRefresh={() => refreshLists()} live={playing || labRunning} />}
+        {page === 'lab' && (
+          <FailureSimulationPanel
+            onRunningChange={setLabRunning}
+            onSimulationComplete={() => refreshLists()}
+            onError={handleError}
+          />
+        )}
+        {page === 'leaderboard' && (
+          <section className="glass-card rounded-[24px] p-6">
+            <LeaderboardTable
+              key={sim.leaderboard_entry_id ?? 'none'}
+              scenarios={scenarios}
+              initialScenario={sim.scenario.key}
+              highlightEntryId={sim.leaderboard_entry_id}
             />
-            <label className="flex items-center gap-2 px-1 text-xs text-slate-400">
-              <input type="checkbox" checked={pauseOnProposal} onChange={e => setPauseOnProposal(e.target.checked)} className="accent-indigo-500" />
-              Pause when the agent proposes something
-            </label>
-          </aside>
-        </div>
+          </section>
+        )}
 
-        <section>
-          <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-3 mb-4" role="tablist">
-            {tabs.map(t => (
-              <button
-                key={t.key}
-                role="tab"
-                aria-selected={tab === t.key}
-                onClick={() => setTab(t.key)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl font-semibold text-xs transition ${
-                  tab === t.key ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/25' : 'text-slate-400 hover:text-white hover:bg-slate-800'
-                }`}
-              >
-                {t.icon}{t.label}
-              </button>
-            ))}
-          </div>
-          {tab === 'campaigns' && <CampaignsTab actions={actions} onReview={openReview} />}
-          {tab === 'payments' && <FailedPaymentsList payments={payments} />}
-          {tab === 'audit' && <AuditTimeline events={audit} onRefresh={() => refreshLists()} live={playing || labRunning} />}
-          {tab === 'lab' && (
-            <FailureSimulationPanel
-              onRunningChange={setLabRunning}
-              onSimulationComplete={() => refreshLists()}
-              onError={handleError}
-            />
-          )}
-        </section>
-
-        <p className="flex items-center gap-2 text-[11px] text-slate-500">
+        <p className="flex items-center gap-2 text-xs text-slate-500">
           <Megaphone className="w-3.5 h-3.5" />
           Simulated customers and a local payment gateway. The agent, policy engine, executor and audit trail are the production code paths.
         </p>
-      </main>
+      </div>
 
       <ApprovalModal
         action={reviewAction ? actions.find(a => a.id === reviewAction.id) ?? reviewAction : null}
@@ -396,18 +409,49 @@ export function App() {
       )}
 
       {showTour && <Tour onDone={() => setShowTour(false)} />}
-
-      <Footer />
     </div>
   );
 }
 
+const PAGE_HEADERS: Record<Page, { eyebrow: string; title: string; lede: string }> = {
+  overview: {
+    eyebrow: 'scenario',
+    title: 'Aura Store, live',
+    lede: 'Watch payments fail in real time, put your AI agent to work, and win back revenue customers would otherwise take elsewhere.'
+  },
+  campaigns: {
+    eyebrow: 'Agent',
+    title: 'Recovery campaigns',
+    lede: 'Every proposal your agent made, what you decided, and which customers paid their recovery link.'
+  },
+  payments: {
+    eyebrow: 'Telemetry',
+    title: 'Failed payments',
+    lede: 'Each failure, when it happened, and whether it was recovered, retried by the customer, or lost.'
+  },
+  audit: {
+    eyebrow: 'Governance',
+    title: 'Audit trail',
+    lede: 'Every analysis, policy check, decision and gateway call, stamped with the simulated hour.'
+  },
+  lab: {
+    eyebrow: 'Safety',
+    title: 'Safety lab',
+    lede: 'Inject faults into the production policy engine and executor, and watch the guardrails hold.'
+  },
+  leaderboard: {
+    eyebrow: 'Competition',
+    title: 'Leaderboard',
+    lede: 'Everyone playing a scenario this week faces the same customers, so scores compare directly.'
+  }
+};
+
 const Footer = () => (
-  <footer className="border-t border-slate-800/80 bg-slate-950 py-6 mt-12">
-    <div className="max-w-7xl mx-auto px-4 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-      <div><span className="font-semibold text-slate-300">RazorGrowth</span>: permissioned AI merchant-growth agent</div>
+  <footer className="border-t border-slate-800 py-6 mt-6">
+    <div className="max-w-[1240px] mx-auto px-4 sm:px-8 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div><span className="font-display text-sm text-slate-300">RazorGrowth</span> · permissioned AI merchant-growth agent</div>
       <div>
-        Built by <span className="text-indigo-400 font-semibold">Varun Sharma</span> & <span className="text-indigo-400 font-semibold">Yashika Garg</span> for <span className="text-indigo-400 font-semibold">Razorpay AI Buildathon 2026</span>
+        Built by <span className="text-gold-300">Varun Sharma</span> &amp; <span className="text-gold-300">Yashika Garg</span> for <span className="text-gold-300">Razorpay AI Buildathon 2026</span>
       </div>
     </div>
   </footer>

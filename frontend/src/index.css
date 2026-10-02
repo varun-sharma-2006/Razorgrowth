@@ -2,43 +2,219 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Shared design system with the Algo Trade Simulator:
+   deep ink backgrounds, champagne-gold accents, glass surfaces, serif display type.
+   ========================================================================== */
+
+:root {
+  color-scheme: dark;
+  --ink: #06070b;
+  --ink-2: #0b0d14;
+  --surface: rgba(18, 20, 30, 0.72);
+  --surface-2: rgba(26, 29, 42, 0.78);
+  --gold: #d4af6a;
+  --gold-light: #f3dca6;
+  --gold-gradient: linear-gradient(135deg, #f6dfa8 0%, #d4af6a 45%, #a9803f 100%);
+  --text: #eee8dc;
+  --line: rgba(238, 232, 220, 0.08);
+  --line-gold: rgba(212, 175, 106, 0.22);
+  --line-gold-strong: rgba(212, 175, 106, 0.45);
+}
+
 @layer base {
+  html {
+    background-color: var(--ink);
+  }
+
   body {
-    font-family: 'Inter', sans-serif;
+    margin: 0;
+    min-height: 100vh;
+    color: var(--text);
+    font-family: "Inter Variable", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-feature-settings: "cv11", "ss01";
+    background:
+      radial-gradient(1200px 600px at 12% -10%, rgba(212, 175, 106, 0.12), transparent 60%),
+      radial-gradient(900px 600px at 100% 0%, rgba(60, 86, 160, 0.16), transparent 60%),
+      radial-gradient(900px 700px at 50% 120%, rgba(212, 175, 106, 0.06), transparent 60%),
+      linear-gradient(180deg, var(--ink-2), var(--ink));
+    background-attachment: fixed;
   }
-  code, pre {
-    font-family: 'JetBrains Mono', monospace;
+
+  h1,
+  h2,
+  h3 {
+    font-family: "Playfair Display Variable", "Playfair Display", Georgia, serif;
+    letter-spacing: -0.01em;
+  }
+
+  code,
+  pre {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  ::selection {
+    background: rgba(212, 175, 106, 0.35);
+    color: #fff;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(212, 175, 106, 0.3) transparent;
+  }
+
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: rgba(212, 175, 106, 0.25);
+    border-radius: 8px;
+  }
+
+  input[type="range"] {
+    accent-color: var(--gold);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--gold-light);
+    outline-offset: 2px;
   }
 }
 
-.glass-card {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+@layer components {
+  /* Glass surface with a fine gold hairline along the top edge. */
+  .glass-card {
+    position: relative;
+    background: linear-gradient(160deg, var(--surface-2), var(--surface));
+    border: 1px solid var(--line);
+    box-shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.75), 0 1px 0 rgba(255, 255, 255, 0.03) inset;
+    backdrop-filter: blur(18px) saturate(120%);
+    -webkit-backdrop-filter: blur(18px) saturate(120%);
+  }
+
+  .glass-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 18% auto 18%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(243, 220, 166, 0.55), transparent);
+    pointer-events: none;
+  }
+
+  .eyebrow {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--gold);
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #7a756c;
+  }
+
+  /* Serif figure with the champagne gradient (stat cards, hero score). */
+  .gold-value {
+    font-family: "Playfair Display Variable", "Playfair Display", Georgia, serif;
+    font-weight: 600;
+    line-height: 1;
+    background: linear-gradient(180deg, #fff6e3, var(--gold-light) 60%, var(--gold));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .btn-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    background: var(--gold-gradient);
+    color: #1a1408;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    box-shadow: 0 10px 30px -10px rgba(212, 175, 106, 0.55);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  }
+
+  .btn-gold:hover:not(:disabled) {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+    box-shadow: 0 16px 36px -12px rgba(212, 175, 106, 0.7);
+  }
+
+  .btn-gold:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 999px;
+    border: 1px solid var(--line-gold-strong);
+    color: var(--gold-light);
+    font-weight: 600;
+    transition: background 0.18s ease, color 0.18s ease;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    background: rgba(212, 175, 106, 0.08);
+  }
+
+  .btn-ghost:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Range-pill chips (speed, scenario tabs). */
+  .chip {
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    padding: 0.35rem 0.85rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #a29c90;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .chip:hover {
+    color: var(--text);
+    border-color: var(--line-gold);
+  }
+
+  .chip[aria-pressed="true"],
+  .chip[aria-selected="true"],
+  .chip[aria-checked="true"] {
+    color: var(--gold-light);
+    border-color: var(--line-gold-strong);
+    background: rgba(212, 175, 106, 0.12);
+  }
+
+  .logo-breathe {
+    animation: breathe 1.8s ease-in-out infinite;
+  }
 }
 
-.glass-card-hover {
-  transition: all 0.25s ease-in-out;
-}
-
-.glass-card-hover:hover {
-  border-color: rgba(99, 102, 241, 0.4);
-  box-shadow: 0 8px 30px rgba(79, 70, 229, 0.15);
-  transform: translateY(-2px);
-}
-
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-::-webkit-scrollbar-track {
-  background: #0f172a;
-}
-::-webkit-scrollbar-thumb {
-  background: #334155;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 rgba(212, 175, 106, 0));
+  }
+  50% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 18px rgba(212, 175, 106, 0.55));
+  }
 }

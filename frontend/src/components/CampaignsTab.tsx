@@ -29,7 +29,7 @@ export const CampaignsTab: React.FC<Props> = ({ actions, onReview }) => {
 
   if (actions.length === 0) {
     return (
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-sm text-slate-400">
+      <div className="glass-card rounded-[24px] p-8 text-center text-sm text-slate-400">
         No campaigns yet. Press <span className="text-white font-semibold">Scan now</span> in the agent panel once failures appear.
       </div>
     );

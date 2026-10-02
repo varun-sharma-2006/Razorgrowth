@@ -89,7 +89,7 @@ export const FailureSimulationPanel: React.FC<FailureSimulationPanelProps> = ({
   };
 
   return (
-    <div className="glass-card rounded-2xl p-6 border border-amber-500/20 bg-amber-950/10">
+    <div className="glass-card rounded-[24px] p-6">
 
       <div className="flex items-center space-x-2 text-amber-400 font-bold text-sm mb-1">
         <ShieldAlert className="w-5 h-5" />
@@ -148,7 +148,7 @@ export const FailureSimulationPanel: React.FC<FailureSimulationPanelProps> = ({
               <button
                 onClick={() => runDemo(demo)}
                 disabled={running !== null}
-                className="w-full inline-flex items-center justify-center space-x-2 px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-amber-500/20 text-amber-300 font-bold text-xs border border-slate-700 hover:border-amber-500/40 transition disabled:opacity-50"
+                className="btn-ghost w-full px-4 py-2.5 text-xs"
               >
                 <Play className="w-3.5 h-3.5 fill-amber-300" />
                 <span>{running === demo.id ? demo.running : demo.button}</span>

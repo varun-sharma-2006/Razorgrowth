@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 
-/** Chart tokens (dark surface). Validated with the dataviz palette checker against #0f172a. */
+/** Chart tokens on the shared ink surface. Series validated with the dataviz palette checker
+ * against #11131c (lightness band, chroma, CVD separation, contrast). Gold and blue mirror the
+ * Algo Trade Simulator's strategy vs buy-and-hold lines. */
 export const CHART = {
-  surface: '#0f172a',
-  grid: '#1e293b',
-  axis: '#334155',
-  muted: '#94a3b8',
-  text: '#e2e8f0',
-  series: ['#3987e5', '#d95926', '#199e70'] // categorical slots 1–3, fixed order
+  surface: '#11131c',
+  grid: '#1f2028',
+  axis: '#33322f',
+  muted: '#7a756c',
+  text: '#eee8dc',
+  series: ['#b8883c', '#5b8fe6', '#d95f72'] // categorical slots 1–3, fixed order
 };
 
 /** Round axis ticks: 0, 2K, 4K … */

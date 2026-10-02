@@ -59,7 +59,7 @@ export const Tour: React.FC<{ onDone: () => void }> = ({ onDone }) => {
           </div>
           <button
             onClick={() => (step === STEPS.length - 1 ? finish() : setStep(step + 1))}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold"
+            className="btn-gold px-4 py-2 text-sm"
           >
             {step === STEPS.length - 1 ? "Let's go" : 'Next'} <ArrowRight className="w-4 h-4" />
           </button>
