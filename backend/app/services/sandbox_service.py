@@ -1,13 +1,12 @@
 """Creates and cleans up per-visitor simulator sandboxes."""
 import hashlib
-import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional, Tuple
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
-    Action, AuditEvent, Customer, Merchant, Opportunity, Payment, PolicyRule, RecoveryLink, TickStat,
+    Action, AuditEvent, Customer, Merchant, Opportunity, Payment, PolicyRule, RecoveryLink, TickStat, User,
 )
 from app.money import to_paise, utc_now
 from app.services.audit_service import AuditService
@@ -32,10 +31,6 @@ PRODUCTS = [
     ("Ceramic Mug Set", 499), ("USB-C Fast Charger 65W", 1199), ("Blue Light Glasses", 799),
     ("Laptop Sleeve", 999), ("Yoga Mat", 899), ("Steel Water Bottle", 549),
 ]
-
-
-def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def current_season(now: Optional[datetime] = None) -> str:
@@ -120,8 +115,12 @@ def _classic_seed(merchant_id: str, sim_start: datetime) -> Tuple[List[Customer]
     return customers, payments
 
 
-async def create_sandbox(db: AsyncSession, scenario: Scenario, nickname: Optional[str]) -> Tuple[Merchant, str]:
-    token = secrets.token_urlsafe(32)
+async def create_sandbox(db: AsyncSession, user: User, scenario: Scenario, nickname: Optional[str]) -> Merchant:
+    """Starts a new run for `user`, replacing their previous one (leaderboard entries are kept)."""
+    previous = (await db.execute(select(Merchant.id).where(Merchant.user_id == user.id))).scalars().all()
+    for old_id in previous:
+        await delete_sandbox(db, old_id)
+
     merchant_id = f"sbx_{uuid.uuid4().hex[:12]}"
     season = current_season()
     seed = scenario_seed(scenario.key, season)
@@ -131,7 +130,7 @@ async def create_sandbox(db: AsyncSession, scenario: Scenario, nickname: Optiona
         id=merchant_id,
         name="Aura Store",
         email="admin@aurastore.in",
-        token_hash=hash_token(token),
+        user_id=user.id,
         nickname=nickname,
         scenario=scenario.key,
         season=season,
@@ -172,7 +171,7 @@ async def create_sandbox(db: AsyncSession, scenario: Scenario, nickname: Optiona
         sanitized_payload={"scenario": scenario.key, "season": season, "wallet": STARTING_WALLET_RUPEES},
     )
     await db.commit()
-    return merchant, token
+    return merchant
 
 
 async def delete_sandbox(db: AsyncSession, merchant_id: str) -> None:
@@ -188,10 +187,11 @@ async def delete_sandbox(db: AsyncSession, merchant_id: str) -> None:
     await db.execute(delete(Merchant).where(Merchant.id == merchant_id))
 
 
-async def cleanup_stale_sandboxes(db: AsyncSession, max_idle: timedelta = timedelta(days=3), limit: int = 20) -> int:
+async def cleanup_stale_sandboxes(db: AsyncSession, max_idle: timedelta = timedelta(days=30), limit: int = 20) -> int:
+    """Removes runs nobody has touched in a month (their leaderboard entries are kept)."""
     cutoff = utc_now() - max_idle
     stale = (await db.execute(
-        select(Merchant.id).where(Merchant.token_hash.is_not(None), Merchant.last_active_at < cutoff).limit(limit)
+        select(Merchant.id).where(Merchant.user_id.is_not(None), Merchant.last_active_at < cutoff).limit(limit)
     )).scalars().all()
     for merchant_id in stale:
         await delete_sandbox(db, merchant_id)

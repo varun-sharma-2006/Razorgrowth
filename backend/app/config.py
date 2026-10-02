@@ -13,10 +13,13 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "sqlite+aiosqlite:///./razorgrowth.db"
     AUTO_MIGRATE: bool = True  # run `alembic upgrade head` on startup
 
-    # Security
-    # Operator key for /admin endpoints (leaderboard moderation). Visitors use sandbox tokens.
-    # Blank disables the admin API.
-    ADMIN_API_KEY: str = ""
+    # Sign in with Google: the Web OAuth client ID from console.cloud.google.com.
+    GOOGLE_CLIENT_ID: str = ""
+    # Comma-separated Google account emails allowed to use /api/v1/admin.
+    ADMIN_EMAILS: str = ""
+    SESSION_TTL_DAYS: int = 30
+    # Local development and tests only: lets you sign in without Google. Never enable in production.
+    ENABLE_DEV_LOGIN: bool = False
     CORS_ORIGINS: str = "http://localhost:5173"
 
     # Razorpay Test Mode
@@ -58,6 +61,10 @@ class Settings(BaseSettings):
         if self.OPENAI_API_KEY:
             return "OpenAI GPT-4o-mini"
         return "Demo Heuristic Mode"
+
+    @property
+    def admin_emails(self) -> List[str]:
+        return [e.strip().lower() for e in self.ADMIN_EMAILS.split(",") if e.strip()]
 
     @property
     def cors_origins(self) -> List[str]:

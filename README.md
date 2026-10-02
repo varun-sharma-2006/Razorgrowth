@@ -12,7 +12,7 @@
 
 ![RazorGrowth Demo](./docs/demo.svg)
 
-Every visitor gets a **private sandbox store**: no sign-up and no shared password. Their browser holds a secret sandbox token.
+Players **sign in with Google**: no passwords, no keys. Each account gets a private store, and the run follows you to any device.
 
 | | |
 |---|---|
@@ -72,7 +72,7 @@ We tuned the model by simulating strategies. On Steady Week, *no discount* < *ha
 ![RazorGrowth Architecture](./docs/architecture.svg)
 
 ```
- React + TypeScript simulator ── X-Sandbox-Token ──► FastAPI (FastAPI Cloud)
+ React + TypeScript simulator ── Google sign-in, session cookie ──► FastAPI (FastAPI Cloud)
    live SVG charts, game loop                          │
                                                        ├─ Simulation engine   (orders, failures, customer behaviour per tick)
                                                        ├─ AI service          (Gemini / OpenAI / heuristic, schema-validated)
@@ -116,6 +116,14 @@ npm run dev                    # http://localhost:5173 (API proxied to :8000)
 
 Interactive API docs: `http://localhost:8000/docs`.
 
+Locally, the example `.env` turns on `ENABLE_DEV_LOGIN`, so the sign-in page shows a **Continue as developer** button and you don't need Google.
+
+### Setting up Google sign-in
+
+1. In [Google Cloud Console](https://console.cloud.google.com/apis/credentials), create an **OAuth client ID** of type **Web application**.
+2. Under **Authorized JavaScript origins**, add every address the site is served from, e.g. `http://localhost:5173` and `https://razorgrowth.vercel.app`. No redirect URIs are needed (the popup flow is used).
+3. Put the client ID in `GOOGLE_CLIENT_ID` on the backend. The frontend reads it from `/api/v1/auth/config`, so nothing needs rebuilding.
+
 ---
 
 ## 🔌 API overview
@@ -123,18 +131,19 @@ Interactive API docs: `http://localhost:8000/docs`.
 | Public | |
 |---|---|
 | `GET /api/v1/scenarios` | Scenario catalogue |
-| `POST /api/v1/sandboxes` | Start a run → `{token, state}` (rate-limited per IP) |
+| `GET /api/v1/auth/config` · `POST /api/v1/auth/google {credential}` · `POST /api/v1/auth/logout` · `GET /api/v1/auth/me` | Sign in with Google (sets an httpOnly session cookie), sign out, current user |
 | `GET /api/v1/leaderboard?scenario=&entry_id=` | Weekly top 20 + your rank |
 | `POST /api/v1/webhooks/razorpay` | Signed Razorpay webhooks |
 
-| Per sandbox (`X-Sandbox-Token`) | |
+| Signed in (session cookie) | |
 |---|---|
+| `POST /sandboxes {scenario, nickname?}` | Start a run (replaces your previous run; rate-limited per user) |
 | `GET /sim/state` · `POST /sim/advance {ticks≤24}` · `GET /sim/series` · `GET /sim/events` | Clock, score and charts |
 | `PUT /sim/settings {auto_propose}` · `POST /sim/leaderboard {nickname}` | Auto-pilot, submit score |
 | `POST /opportunities/scan` · `POST /actions/{id}/decision` | Ask the agent; approve (optionally with `budget_override`, `exclude_reasons`) or reject |
 | `PUT /merchant/policy` · `GET /payments` · `GET /audit` · `POST /simulation/*` | Cap, telemetry, audit trail, safety lab |
 
-Operator-only (`X-Admin-Key`): `GET /admin/stats`, `DELETE /admin/leaderboard/{id}`, `POST /admin/cleanup`. Idle sandboxes are cleaned up after 3 days; leaderboard entries are kept.
+Admins are Google accounts listed in `ADMIN_EMAILS` (no admin key): `GET /admin/stats`, `DELETE /admin/leaderboard/{id}`, `POST /admin/cleanup`. Runs untouched for 30 days are cleaned up; leaderboard entries are kept.
 
 ---
 
@@ -145,10 +154,10 @@ cd backend
 python -m pytest -q
 ```
 
-57 tests, each on a fresh migrated database:
+69 tests, each on a fresh migrated database:
 
 - **Simulator** (`test_sim.py`): identical streams for the same scenario and week, scenario events on time (the UPI spike), wallet reservation and settlement, simulated customers paying or expiring, approve-with-changes, the wallet limit, auto-pilot never executing on its own, a full run to the leaderboard (a passive run scores exactly 0), unranked practice mode, nickname validation, and future outcomes never exposed.
-- **Security** (`test_security.py`): token required, sandboxes isolated from each other, rate limiting, admin key, webhook signatures, redelivery dedup, opportunity resolution.
+- **Security** (`test_security.py`): Google sign-in (verified, rejected and unverified tokens), httpOnly session cookie, logout invalidating the session, sign-in required everywhere, users isolated from each other, runs following the account across devices, per-user rate limiting, admin by email, dev login off by default, webhook signatures, redelivery dedup.
 - **Flows** (`test_backend.py`): evidence matches the data, re-scan reuse, one link per payment, rejection, invalid decisions, double and **concurrent** approval, bounded and audited policy, the secondary policy check, audit sanitisation.
 - **Execution / AI** (`test_execution.py`, `test_ai.py`): real retries → safe halt, lost-response dedup, permanent errors not retried, incentive allocation; LLM output validation and fallback.
 
@@ -159,7 +168,7 @@ CI runs the backend tests and the frontend build on every push.
 ## 🌐 Deployment
 
 - **Frontend**: Vercel (root `frontend`). `frontend/vercel.json` rewrites `/api/*` to the backend.
-- **Backend**: [FastAPI Cloud](https://fastapicloud.com) (no credit card needed): `cd backend && fastapi deploy`. Environment: `DATABASE_URL`, `RAZORPAY_WEBHOOK_SECRET`, optional `ADMIN_API_KEY`, AI keys and Razorpay test keys. Migrations run on startup.
+- **Backend**: [FastAPI Cloud](https://fastapicloud.com) (no credit card needed): `cd backend && fastapi deploy`. Environment: `GOOGLE_CLIENT_ID`, `DATABASE_URL`, `RAZORPAY_WEBHOOK_SECRET`, optional `ADMIN_EMAILS`, AI keys and Razorpay test keys. Never set `ENABLE_DEV_LOGIN` in production. Migrations run on startup.
 
 ---
 
@@ -168,14 +177,14 @@ CI runs the backend tests and the frontend build on every push.
 ```
 backend/app/
   main.py, config.py, database.py, models.py, schemas.py, money.py, simclock.py
-  sandbox.py                  # X-Sandbox-Token → merchant
-  ratelimit.py, security.py   # sandbox creation limiter, admin key
+  sandbox.py, security.py     # signed-in user → their current run; admin by email
+  ratelimit.py                # per-user run creation limiter
   sim/        scenarios.py · behavior.py (customer model) · engine.py (ticks) · state.py (score)
   services/   ai_service · policy_engine · proposal_service · recovery_service ·
               razorpay_service · link_outcomes · sandbox_service · audit_service
   routers/    sim · merchant · payments · opportunities · actions · webhooks · simulation · audit · admin
 backend/migrations/           # Alembic (0001 initial, 0002 simulator)
-backend/tests/                # 57 tests
+backend/tests/                # 69 tests
 frontend/src/
   App.tsx                     # game loop, views, keyboard shortcuts
   components/ Landing · SimTopBar · KpiStrip · AgentPanel · ApprovalModal · CampaignsTab ·

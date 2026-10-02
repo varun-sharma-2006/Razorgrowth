@@ -16,49 +16,22 @@ import {
   AdvanceResponse,
   Leaderboard,
   LeaderboardEntry,
-  DecisionOptions
+  DecisionOptions,
+  AuthConfig,
+  User
 } from '../types';
 
-const TOKEN_STORAGE = 'razorgrowth.sandboxToken';
-
+// The API is served same-origin (Vite proxy locally, Vercel rewrite in production), so the
+// httpOnly session cookie set after Google sign-in is sent automatically. No tokens in JS.
 const client = axios.create({
   baseURL: (import.meta.env.VITE_API_BASE_URL || '') + '/api/v1'
 });
 
-// The sandbox token identifies this visitor's private simulation. It lives only in this
-// browser (localStorage), so a run survives reloads on this device.
-export const sandboxToken = {
-  get(): string | null {
-    try {
-      return localStorage.getItem(TOKEN_STORAGE);
-    } catch {
-      return null;
-    }
-  },
-  set(token: string) {
-    try {
-      localStorage.setItem(TOKEN_STORAGE, token);
-    } catch {
-      /* storage unavailable: the run is lost on reload */
-    }
-  },
-  clear() {
-    try {
-      localStorage.removeItem(TOKEN_STORAGE);
-    } catch {
-      /* ignore */
-    }
-  }
-};
-
-client.interceptors.request.use((config) => {
-  const token = sandboxToken.get();
-  if (token) config.headers.set('X-Sandbox-Token', token);
-  return config;
-});
-
 export const isUnauthorized = (err: unknown): boolean =>
   axios.isAxiosError(err) && err.response?.status === 401;
+
+export const isNotFound = (err: unknown): boolean =>
+  axios.isAxiosError(err) && err.response?.status === 404;
 
 export const isConflict = (err: unknown): boolean =>
   axios.isAxiosError(err) && err.response?.status === 409;
@@ -79,12 +52,21 @@ export function errorMessage(err: unknown): string {
 }
 
 export const api = {
+  // Auth
+  getAuthConfig: async (): Promise<AuthConfig> => (await client.get('/auth/config')).data,
+  me: async (): Promise<User> => (await client.get('/auth/me')).data,
+  googleLogin: async (credential: string): Promise<User> => (await client.post('/auth/google', { credential })).data,
+  devLogin: async (): Promise<User> => (await client.post('/auth/dev-login', {})).data,
+  logout: async (): Promise<void> => {
+    await client.post('/auth/logout');
+  },
+
   // Public
   getSystemStatus: async (): Promise<SystemStatus> => (await client.get('/merchant/status')).data,
   getScenarios: async (): Promise<Scenario[]> => (await client.get('/scenarios')).data,
   getLeaderboard: async (scenario: string, entryId?: string | null): Promise<Leaderboard> =>
     (await client.get('/leaderboard', { params: { scenario, ...(entryId ? { entry_id: entryId } : {}) } })).data,
-  startSandbox: async (scenario: string, nickname?: string): Promise<{ token: string; state: SimState }> =>
+  startSandbox: async (scenario: string, nickname?: string): Promise<SimState> =>
     (await client.post('/sandboxes', { scenario, nickname: nickname || null })).data,
 
   // Simulation

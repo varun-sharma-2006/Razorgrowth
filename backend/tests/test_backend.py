@@ -107,7 +107,7 @@ def test_concurrent_approvals_execute_once(client):
     async def race():
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test",
-                                     headers={"X-Sandbox-Token": client.headers["X-Sandbox-Token"]}) as ac:
+                                     cookies={"rg_session": client.cookies.get("rg_session")}) as ac:
             url = f"/api/v1/actions/{action_id}/decision"
             return await asyncio.gather(*(ac.post(url, json={"decision": "APPROVE"}) for _ in range(3)))
 

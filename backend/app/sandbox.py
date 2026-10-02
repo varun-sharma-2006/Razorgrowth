@@ -1,27 +1,18 @@
-from typing import Optional
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.models import Merchant
-from app.services.sandbox_service import hash_token
+from app.models import Merchant, User
+from app.security import current_user
 from app.simclock import current_sim_tick
 
 
-async def current_merchant(
-    x_sandbox_token: Optional[str] = Header(default=None),
-    db: AsyncSession = Depends(get_db),
-) -> Merchant:
-    """Resolves the visitor's sandbox from the X-Sandbox-Token header.
-
-    The token is a bearer secret held only by the visitor's browser; the server stores its hash.
-    """
-    if not x_sandbox_token:
-        raise HTTPException(status_code=401, detail="Missing X-Sandbox-Token header. Start a simulation first.")
+async def current_merchant(user: User = Depends(current_user), db: AsyncSession = Depends(get_db)) -> Merchant:
+    """The signed-in user's current simulation run (their most recently started one)."""
     merchant = (await db.execute(
-        select(Merchant).where(Merchant.token_hash == hash_token(x_sandbox_token))
+        select(Merchant).where(Merchant.user_id == user.id).order_by(Merchant.created_at.desc(), Merchant.id.desc())
     )).scalars().first()
     if merchant is None:
-        raise HTTPException(status_code=401, detail="This simulation no longer exists. Start a new one.")
+        raise HTTPException(status_code=404, detail="You don't have a simulation yet. Start one.")
     current_sim_tick.set(merchant.current_tick)
     return merchant

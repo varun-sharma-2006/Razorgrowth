@@ -14,8 +14,8 @@ class Merchant(Base):
     email = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
-    # Simulator sandbox state. Every visitor gets their own merchant.
-    token_hash = Column(String(64), unique=True, index=True, nullable=True)  # sha256 of the sandbox token
+    # Simulator run state. Each run is a private merchant owned by one signed-in user.
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
     nickname = Column(String(40), nullable=True)
     scenario = Column(String, nullable=False, server_default="classic", default="classic")
     season = Column(String, nullable=False, server_default="", default="")  # e.g. 2026-W40
@@ -34,6 +34,33 @@ class Merchant(Base):
     @property
     def wallet_start(self) -> float:
         return to_rupees(self.wallet_start_paise)
+
+
+class User(Base):
+    """A person signed in with Google."""
+    __tablename__ = "users"
+
+    id = Column(String, primary_key=True)
+    google_sub = Column(String, unique=True, index=True, nullable=False)  # Google's stable account id ("dev:..." for dev login)
+    email = Column(String, nullable=False, index=True)
+    name = Column(String, nullable=False)
+    picture = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    last_login_at = Column(DateTime(timezone=True), default=utc_now)
+
+    @property
+    def is_dev_account(self) -> bool:
+        return self.google_sub.startswith("dev:")
+
+
+class UserSession(Base):
+    """A browser session. Only the SHA-256 of the cookie value is stored."""
+    __tablename__ = "user_sessions"
+
+    id = Column(String(64), primary_key=True)  # sha256 of the session token
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
 
 
 class Customer(Base):
@@ -285,6 +312,7 @@ class LeaderboardEntry(Base):
 
     id = Column(String, primary_key=True)
     merchant_id = Column(String, nullable=True, index=True)
+    user_id = Column(String, nullable=True, index=True)
     nickname = Column(String(40), nullable=False)
     scenario = Column(String, nullable=False, index=True)
     season = Column(String, nullable=False, index=True)

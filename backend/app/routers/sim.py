@@ -1,16 +1,17 @@
 import uuid
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.models import LeaderboardEntry, Merchant, TickStat
+from app.models import LeaderboardEntry, Merchant, TickStat, User
 from app.money import to_rupees, utc_now
-from app.ratelimit import client_ip, sandbox_creation_limiter
+from app.ratelimit import sandbox_creation_limiter
 from app.sandbox import current_merchant
+from app.security import current_user
 from app.schemas import (
     AdvanceRequestSchema, AdvanceResponseSchema, LeaderboardEntrySchema, LeaderboardSchema, LeaderboardSubmitSchema,
-    SandboxCreatedSchema, SandboxCreateSchema, ScenarioEventSchema, ScenarioSchema, ScoreSchema, SimSettingsSchema,
+    SandboxCreateSchema, ScenarioEventSchema, ScenarioSchema, ScoreSchema, SimSettingsSchema,
     SimStateSchema, TickStatSchema,
 )
 from app.services.audit_service import AuditService
@@ -77,16 +78,21 @@ async def list_scenarios():
     return [scenario_schema(s) for s in SCENARIOS.values()]
 
 
-@public_router.post("/sandboxes", response_model=SandboxCreatedSchema, status_code=201)
-async def start_sandbox(body: SandboxCreateSchema, request: Request, db: AsyncSession = Depends(get_db)):
+@public_router.post("/sandboxes", response_model=SimStateSchema, status_code=201)
+async def start_sandbox(
+    body: SandboxCreateSchema,
+    user: User = Depends(current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Starts a new run for the signed-in user (replacing their previous run)."""
     scenario = get_scenario(body.scenario)
     if scenario is None:
         raise HTTPException(status_code=422, detail=f"Unknown scenario '{body.scenario}'")
-    sandbox_creation_limiter.check(client_ip(request))
+    sandbox_creation_limiter.check(user.id)
     await cleanup_stale_sandboxes(db)
-    nickname = body.nickname.strip() if body.nickname and body.nickname.strip() else None
-    merchant, token = await create_sandbox(db, scenario, nickname)
-    return SandboxCreatedSchema(token=token, state=await build_state(db, merchant))
+    nickname = body.nickname.strip() if body.nickname and body.nickname.strip() else user.name.split(" ")[0][:24]
+    merchant = await create_sandbox(db, user, scenario, nickname)
+    return await build_state(db, merchant)
 
 
 @public_router.get("/leaderboard", response_model=LeaderboardSchema)
@@ -214,6 +220,7 @@ async def submit_score(
     entry = LeaderboardEntry(
         id=f"lb_{uuid.uuid4().hex[:12]}",
         merchant_id=merchant.id,
+        user_id=merchant.user_id,
         nickname=body.nickname.strip(),
         scenario=merchant.scenario,
         season=merchant.season,

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy · RazorGrowth Simulator</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root { color-scheme: dark; }
+    body {
+      margin: 0;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: #eee8dc;
+      background:
+        radial-gradient(1200px 600px at 12% -10%, rgba(212, 175, 106, 0.12), transparent 60%),
+        linear-gradient(180deg, #0b0d14, #06070b);
+      background-attachment: fixed;
+      line-height: 1.65;
+    }
+    main { width: min(760px, 92vw); margin: 0 auto; padding: 3.5rem 0 4rem; }
+    .eyebrow { font-size: .72rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: #d4af6a; }
+    h1, h2 { font-family: "Playfair Display", Georgia, serif; font-weight: 600; letter-spacing: -.01em; }
+    h1 { font-size: clamp(2rem, 4vw, 2.6rem); margin: .4rem 0 1rem; }
+    h2 { font-size: 1.25rem; margin: 2rem 0 .5rem; }
+    p, li { color: rgba(238, 232, 220, .72); }
+    a { color: #f3dca6; text-underline-offset: 3px; }
+    a:hover { color: #fff; }
+    .card {
+      border: 1px solid rgba(238, 232, 220, .08); border-radius: 24px; padding: 1.75rem 2rem;
+      background: linear-gradient(160deg, rgba(26, 29, 42, .78), rgba(18, 20, 30, .72));
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <span class="eyebrow">RazorGrowth Simulator</span>
+    <h1>Privacy</h1>
+    <div class="card">
+      <p>RazorGrowth is a simulator built for the Razorpay AI Buildathon 2026. It uses Google sign-in only to know who you are, so it can save your simulation runs and show your name on the leaderboard.</p>
+
+      <h2>What we receive from Google</h2>
+      <ul>
+        <li>Your name, email address and profile photo URL.</li>
+        <li>Google's identifier for your account, so we recognise you next time.</li>
+      </ul>
+      <p>We never see your Google password, and nothing else in your Google account is accessed.</p>
+
+      <h2>What we store</h2>
+      <ul>
+        <li>Your profile details above and the time you last signed in.</li>
+        <li>Your current simulation run. Starting a new run replaces the previous one; runs untouched for 30 days are deleted.</li>
+        <li>Leaderboard entries you choose to submit, under the nickname you enter.</li>
+        <li>A sign-in session (an httpOnly cookie) that lasts 30 days or until you log out.</li>
+      </ul>
+
+      <h2>What we don't do</h2>
+      <ul>
+        <li>No payments: the customers and payments in the simulator are fictional, and links go through a demo gateway.</li>
+        <li>No advertising, tracking pixels or selling of data.</li>
+      </ul>
+
+      <h2>Removing your data</h2>
+      <p>Log out to end your session on that device. To have your account, runs and leaderboard entries deleted, contact the team through the project's GitHub repository.</p>
+    </div>
+    <p><a href="/">← Back to RazorGrowth</a></p>
+  </main>
+</body>
+</html>

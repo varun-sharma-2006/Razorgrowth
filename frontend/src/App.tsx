@@ -15,16 +15,23 @@ import { FailureSimulationPanel } from './components/FailureSimulationPanel';
 import { ApprovalModal } from './components/ApprovalModal';
 import { EndOfRunModal } from './components/EndOfRunModal';
 import { Tour, tourDone } from './components/Tour';
-import { api, errorMessage, isConflict, isUnauthorized, sandboxToken } from './services/api';
+import { api, errorMessage, isConflict, isNotFound, isUnauthorized } from './services/api';
+import { LoginPage } from './components/LoginPage';
+import { googleSignOut } from './components/GoogleSignIn';
 import {
-  ActionItem, AdvanceResponse, AuditEventItem, DecisionOptions, PaymentItem, Scenario, ScenarioEvent, SimState, TickStat
+  ActionItem, AdvanceResponse, AuditEventItem, AuthConfig, DecisionOptions, PaymentItem, Scenario, ScenarioEvent,
+  SimState, TickStat, User
 } from './types';
 import { Info, XCircle, Megaphone, Rocket } from 'lucide-react';
 
 const TICK_INTERVAL_MS = 1000;
 
 export function App() {
-  const [view, setView] = useState<'loading' | 'landing' | 'sim'>('loading');
+  const [view, setView] = useState<'loading' | 'login' | 'landing' | 'sim'>('loading');
+  const [authConfig, setAuthConfig] = useState<AuthConfig | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authBusy, setAuthBusy] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [starting, setStarting] = useState(false);
 
@@ -51,21 +58,38 @@ export function App() {
   const pageRef = useRef(page);
   pageRef.current = page;
 
-  const backToLanding = useCallback((message?: string) => {
-    sandboxToken.clear();
+  const resetRun = useCallback(() => {
     setPlaying(false);
     setSim(null);
-    setView('landing');
-    if (message) setError(message);
+    setSeries([]);
+    setEvents([]);
+    setActions([]);
+    setPayments([]);
+    setAudit([]);
+    setNotice(null);
+    setShowResults(false);
+    setReviewAction(null);
   }, []);
+
+  const backToLanding = useCallback(() => {
+    resetRun();
+    setView('landing');
+  }, [resetRun]);
+
+  const toLogin = useCallback((message?: string) => {
+    resetRun();
+    setUser(null);
+    setView('login');
+    setAuthError(message ?? null);
+  }, [resetRun]);
 
   const handleError = useCallback((err: unknown) => {
     if (isUnauthorized(err)) {
-      backToLanding('That simulation no longer exists. Start a new one.');
+      toLogin('Your session has ended. Please sign in again.');
       return;
     }
     setError(errorMessage(err));
-  }, [backToLanding]);
+  }, [toLogin]);
 
   const refreshLists = useCallback(async (withPayments = pageRef.current === 'payments') => {
     const [acts, aud, pays] = await Promise.all([
@@ -79,7 +103,8 @@ export function App() {
   }, []);
 
   const loadSim = useCallback(async () => {
-    const [state, ser, evs] = await Promise.all([api.getState(), api.getSeries(), api.getEvents()]);
+    const state = await api.getState(); // 404 here means "no run yet"; skip the other requests
+    const [ser, evs] = await Promise.all([api.getSeries(), api.getEvents()]);
     setSim(state);
     setSeries(ser);
     setEvents(evs);
@@ -87,24 +112,55 @@ export function App() {
     return state;
   }, [refreshLists]);
 
-  // Boot: scenarios for the landing page; resume an existing run if this browser has one.
-  useEffect(() => {
-    api.getScenarios().then(setScenarios).catch(handleError);
-    if (!sandboxToken.get()) {
-      setView('landing');
-      return;
+  /** After sign-in: resume the account's current run, or offer a new one. */
+  const enterApp = useCallback(async () => {
+    try {
+      const state = await loadSim();
+      setView('sim');
+      if (state.status === 'FINISHED') setShowResults(true);
+    } catch (err) {
+      if (isNotFound(err)) setView('landing');
+      else throw err;
     }
-    loadSim()
-      .then(state => {
-        setView('sim');
-        if (state.status === 'FINISHED') setShowResults(true);
+  }, [loadSim]);
+
+  // Boot: auth config and scenarios, then the signed-in user's run (if any).
+  useEffect(() => {
+    api.getScenarios().then(setScenarios).catch(() => undefined);
+    api.getAuthConfig().then(setAuthConfig).catch(err => setAuthError(errorMessage(err)));
+    api.me()
+      .then(async me => {
+        setUser(me);
+        await enterApp();
       })
       .catch(err => {
-        if (isUnauthorized(err)) sandboxToken.clear();
-        else setError(errorMessage(err));
-        setView('landing');
+        if (!isUnauthorized(err)) setAuthError(errorMessage(err));
+        setView('login');
       });
-  }, [handleError, loadSim]);
+  }, [enterApp]);
+
+  const signIn = async (login: () => Promise<User>) => {
+    setAuthBusy(true);
+    setAuthError(null);
+    try {
+      setUser(await login());
+      await enterApp();
+    } catch (err) {
+      setAuthError(errorMessage(err));
+    } finally {
+      setAuthBusy(false);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await api.logout();
+    } catch {
+      /* the cookie is cleared server-side or already gone */
+    }
+    googleSignOut();
+    toLogin();
+  };
 
   const applyAdvance = useCallback((res: AdvanceResponse) => {
     setSim(res.state);
@@ -172,8 +228,7 @@ export function App() {
     setStarting(true);
     setError(null);
     try {
-      const res = await api.startSandbox(scenario, nickname);
-      sandboxToken.set(res.token);
+      await api.startSandbox(scenario, nickname);
       setSeries([]);
       setEvents([]);
       setNotice(null);
@@ -183,7 +238,7 @@ export function App() {
       setView('sim');
       if (!tourDone()) setShowTour(true);
     } catch (err) {
-      setError(errorMessage(err));
+      handleError(err);
     } finally {
       setStarting(false);
     }
@@ -272,11 +327,29 @@ export function App() {
     );
   }
 
+  if (view === 'login' || !user) {
+    return (
+      <div className="min-h-screen text-slate-100">
+        <LoginPage
+          config={authConfig}
+          scenarioCount={scenarios.length}
+          busy={authBusy}
+          error={authError}
+          onCredential={credential => signIn(() => api.googleLogin(credential))}
+          onDevLogin={() => signIn(api.devLogin)}
+        />
+        <Footer />
+      </div>
+    );
+  }
+
   if (view === 'landing' || !sim) {
     return (
       <div className="min-h-screen text-slate-100">
         <div className="max-w-[1240px] mx-auto px-4 sm:px-8 pt-4 space-y-3">{banners}</div>
         <Landing
+          user={user}
+          onLogout={logout}
           scenarios={scenarios}
           resumable={sim && sim.status === 'RUNNING' ? sim : null}
           starting={starting}
@@ -294,6 +367,8 @@ export function App() {
   return (
     <div className="min-h-screen text-slate-100 flex flex-col lg:flex-row">
       <AppSidebar
+        user={user}
+        onLogout={logout}
         state={sim}
         page={page}
         campaignCount={actions.length}

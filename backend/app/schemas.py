@@ -266,11 +266,6 @@ class SandboxCreateSchema(BaseModel):
     nickname: Optional[str] = Field(default=None, max_length=24)
 
 
-class SandboxCreatedSchema(BaseModel):
-    token: str
-    state: SimStateSchema
-
-
 class AdvanceRequestSchema(BaseModel):
     ticks: int = Field(default=1, ge=1, le=24)
 

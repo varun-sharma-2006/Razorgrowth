@@ -259,3 +259,18 @@ export interface DecisionOptions {
   budget_override?: number;
   exclude_reasons?: FailureReason[];
 }
+
+// ---------------------------------------------------------------- auth
+
+export interface AuthConfig {
+  google_client_id: string;
+  dev_login_enabled: boolean;
+}
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string | null;
+  is_admin: boolean;
+}

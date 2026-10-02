@@ -8,3 +8,5 @@ asyncpg==0.31.0
 alembic==1.20.0
 httpx==0.28.1
 google-genai==2.27.0
+google-auth==2.59.1
+requests==2.34.2
