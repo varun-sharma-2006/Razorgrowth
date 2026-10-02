@@ -1,18 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { X, ShieldCheck, CheckCircle2, XCircle, Key, Target, Sparkles, Check, Link2 } from 'lucide-react';
-import { ActionItem } from '../types';
+import React, { useEffect, useMemo, useState } from 'react';
+import { X, ShieldCheck, CheckCircle2, XCircle, Key, Target, Sparkles, Check, Link2, SlidersHorizontal } from 'lucide-react';
+import { ActionItem, DecisionOptions, FailureReason, PaymentItem } from '../types';
 import { errorMessage } from '../services/api';
-import { formatINR } from '../utils/format';
+import { formatINR, formatINRWhole, REASON_LABELS } from '../utils/format';
 
 interface ApprovalModalProps {
   action: ActionItem | null;
+  payments: PaymentItem[];
   isOpen: boolean;
   onClose: () => void;
-  onDecide: (decision: 'APPROVE' | 'REJECT', reason?: string) => Promise<void>;
+  onDecide: (decision: 'APPROVE' | 'REJECT', options?: DecisionOptions) => Promise<void>;
 }
 
 export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   action,
+  payments,
   isOpen,
   onClose,
   onDecide
@@ -21,27 +23,61 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [budget, setBudget] = useState('');
+  const [excluded, setExcluded] = useState<FailureReason[]>([]);
 
   useEffect(() => {
     if (isOpen) {
       setError(null);
       setShowRejectInput(false);
       setRejectReason('');
+      setBudget(action ? String(action.proposed_budget) : '');
+      setExcluded([]);
     }
-  }, [isOpen, action?.id]);
+  }, [isOpen, action?.id, action?.proposed_budget]);
+
+  // Targeted payments grouped by failure reason, for "approve with changes".
+  const reasonGroups = useMemo(() => {
+    if (!action) return [];
+    const byId = new Map(payments.map(p => [p.id, p]));
+    const groups = new Map<string, { count: number; amount: number }>();
+    for (const id of action.target_payment_ids) {
+      const p = byId.get(id);
+      if (!p || !p.failure_reason) continue;
+      const g = groups.get(p.failure_reason) ?? { count: 0, amount: 0 };
+      g.count += 1;
+      g.amount += p.amount;
+      groups.set(p.failure_reason, g);
+    }
+    return [...groups.entries()].sort((a, b) => b[1].count - a[1].count);
+  }, [action, payments]);
 
   if (!isOpen || !action) return null;
 
   const policyCheck = action.policy_result ?? null;
   const isPending = action.status === 'PENDING_APPROVAL';
   const isPolicyBlocked = action.status === 'POLICY_BLOCKED' || !!policyCheck?.policy_blocked;
-  const linkCount = action.target_payment_ids.length;
+  const budgetValue = Number(budget);
+  const budgetValid = Number.isFinite(budgetValue) && budgetValue > 0;
+  const budgetChanged = budgetValid && Math.abs(budgetValue - action.proposed_budget) > 0.001;
+  const excludedCount = reasonGroups
+    .filter(([r]) => excluded.includes(r as FailureReason))
+    .reduce((a, [, g]) => a + g.count, 0);
+  const linkCount = action.target_payment_ids.length - excludedCount;
+  const modified = budgetChanged || excluded.length > 0;
 
-  const decide = async (decision: 'APPROVE' | 'REJECT', reason?: string) => {
+  const approve = () => decide('APPROVE', {
+    ...(budgetChanged ? { budget_override: budgetValue } : {}),
+    ...(excluded.length ? { exclude_reasons: excluded } : {})
+  });
+  const toggleReason = (r: FailureReason) =>
+    setExcluded(prev => (prev.includes(r) ? prev.filter(x => x !== r) : [...prev, r]));
+
+  const decide = async (decision: 'APPROVE' | 'REJECT', options?: DecisionOptions) => {
     setSubmitting(true);
     setError(null);
     try {
-      await onDecide(decision, reason);
+      await onDecide(decision, options);
       onClose();
     } catch (err) {
       // Never assume success: show exactly why the backend refused or failed.
@@ -56,7 +92,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
       setShowRejectInput(true);
       return;
     }
-    decide('REJECT', rejectReason.trim() || 'Merchant Admin rejected proposal');
+    decide('REJECT', { rejection_reason: rejectReason.trim() || 'Merchant Admin rejected proposal' });
   };
 
   return (
@@ -108,7 +144,8 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
             <p>
               Sends <span className="font-bold text-white">{linkCount} Razorpay Payment Links</span>, one per failed payment,
               each for the customer's original amount minus their share of a{' '}
-              <span className="font-bold text-white">{formatINR(action.proposed_budget)}</span> recovery incentive.
+              <span className="font-bold text-white">{formatINR(budgetValid ? budgetValue : action.proposed_budget)}</span> recovery incentive.
+              Incentives are only spent when a customer actually pays.
               Every link carries a unique <span className="font-mono">reference_id</span>, so retries cannot create duplicates.
             </p>
           </div>
@@ -208,6 +245,54 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
             </div>
           </div>
 
+          {isPending && (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300 uppercase tracking-wider">
+                <SlidersHorizontal className="w-4 h-4 text-indigo-400" />
+                <span>Approve with changes (optional)</span>
+              </div>
+              <label className="block text-xs text-slate-400">
+                Incentive budget (₹)
+                <input
+                  type="number"
+                  min={1}
+                  step={50}
+                  value={budget}
+                  onChange={e => setBudget(e.target.value)}
+                  className="mt-1 w-40 block bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-indigo-500"
+                />
+              </label>
+              {reasonGroups.length > 0 && (
+                <fieldset>
+                  <legend className="text-xs text-slate-400 mb-1.5">Include failures caused by</legend>
+                  <div className="flex flex-wrap gap-2">
+                    {reasonGroups.map(([reason, g]) => {
+                      const on = !excluded.includes(reason as FailureReason);
+                      return (
+                        <button
+                          key={reason}
+                          type="button"
+                          role="checkbox"
+                          aria-checked={on}
+                          onClick={() => toggleReason(reason as FailureReason)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold transition ${
+                            on ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-100' : 'border-slate-700 text-slate-500 line-through'
+                          }`}
+                        >
+                          {on ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          {REASON_LABELS[reason] ?? reason} · {g.count} ({formatINRWhole(g.amount)})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              )}
+              <p className="text-[11px] text-slate-500">
+                The policy engine re-checks your changes against the safety cap and wallet before anything runs.
+              </p>
+            </div>
+          )}
+
           {showRejectInput && (
             <div className="space-y-1.5 animate-in fade-in duration-150">
               <label htmlFor="reject-reason" className="text-xs font-semibold text-rose-300">Reason for Rejection (Optional)</label>
@@ -256,8 +341,8 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
             </button>
             {isPending && (
               <button
-                onClick={() => decide('APPROVE')}
-                disabled={submitting || isPolicyBlocked}
+                onClick={approve}
+                disabled={submitting || isPolicyBlocked || !budgetValid || linkCount === 0}
                 className={`inline-flex items-center space-x-2 px-6 py-2.5 rounded-xl font-bold text-xs shadow-lg transition transform hover:-translate-y-0.5 active:translate-y-0 disabled:hover:translate-y-0 ${
                   isPolicyBlocked
                     ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
@@ -265,7 +350,7 @@ export const ApprovalModal: React.FC<ApprovalModalProps> = ({
                 }`}
               >
                 <CheckCircle2 className="w-4 h-4" />
-                <span>{submitting ? 'Executing via Razorpay...' : 'Approve & Execute Action'}</span>
+                <span>{submitting ? 'Executing via Razorpay...' : modified ? `Approve with changes (${linkCount} links)` : 'Approve & Execute Action'}</span>
               </button>
             )}
           </div>

@@ -19,26 +19,36 @@ os.environ.update({
     "GEMINI_API_KEY": "",
     "OPENAI_API_KEY": "",
     "RAZORPAY_RETRY_BACKOFF_SECONDS": "0",
-    "DEFAULT_MAX_BUDGET": "1000",
 })
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 from app.main import app  # noqa: E402
+from app.ratelimit import sandbox_creation_limiter  # noqa: E402
 from app.services.razorpay_service import DemoPaymentLinkClient  # noqa: E402
 
 
+def start_sandbox(client: TestClient, scenario: str = "classic", nickname: str = None) -> TestClient:
+    """Creates a sandbox and returns a client that sends its token on every request."""
+    res = client.post("/api/v1/sandboxes", json={"scenario": scenario, "nickname": nickname})
+    assert res.status_code == 201, res.text
+    sandbox = TestClient(app, headers={"X-Sandbox-Token": res.json()["token"]})
+    sandbox.state_on_create = res.json()["state"]
+    return sandbox
+
+
 @pytest.fixture
-def client():
-    """A fresh, migrated and seeded database for every test."""
+def app_client():
+    """A fresh, migrated database for every test; no sandbox token attached."""
     if DB_PATH.exists():
         DB_PATH.unlink()
     DemoPaymentLinkClient._links.clear()
-    with TestClient(app, headers={"X-Admin-Key": ADMIN_KEY}) as c:
+    sandbox_creation_limiter._events.clear()
+    with TestClient(app) as c:
         yield c
 
 
 @pytest.fixture
-def anon_client(client):
-    """Same app and database, but without the admin key header."""
-    return TestClient(app)
+def client(app_client):
+    """A client bound to a new Classic-demo sandbox (the original 9 failed payments)."""
+    return start_sandbox(app_client, "classic")

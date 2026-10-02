@@ -3,10 +3,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db, is_sqlite
-from app.models import Action, Payment, PolicyRule, RecoveryLink
+from app.models import Action, Merchant, Payment, PolicyRule, RecoveryLink, TickStat
 from app.money import format_inr, to_paise, to_rupees
 from app.schemas import MerchantMetricsSchema, PolicySchema, PolicyUpdateSchema, SystemStatusSchema
-from app.security import actor_label
+from app.sandbox import current_merchant
 from app.services.audit_service import AuditService
 from app.services.policy_engine import PolicyEngine
 
@@ -20,9 +20,7 @@ async def get_system_status():
     return SystemStatusSchema(
         razorpay_mode=settings.razorpay_mode,
         ai_provider_mode=settings.ai_provider_mode,
-        database_type="SQLite (Local Dev)" if is_sqlite else "PostgreSQL",
-        merchant_id=settings.MERCHANT_ID,
-        auth_required=settings.auth_required,
+        database_type="SQLite" if is_sqlite else "PostgreSQL",
         webhook_configured=bool(settings.RAZORPAY_WEBHOOK_SECRET),
     )
 
@@ -37,11 +35,15 @@ async def _sum_payments(db: AsyncSession, merchant_id: str, status: str) -> int:
 
 
 @router.get("/metrics", response_model=MerchantMetricsSchema)
-async def get_merchant_metrics(db: AsyncSession = Depends(get_db)):
-    merchant_id = settings.MERCHANT_ID
+async def get_merchant_metrics(merchant: Merchant = Depends(current_merchant), db: AsyncSession = Depends(get_db)):
+    merchant_id = merchant.id
     rate = settings.RECOVERY_CONVERSION_RATE
 
-    total_revenue = await _sum_payments(db, merchant_id, "captured")
+    # Seeded history is stored as payment rows; the live stream's captured orders as hourly aggregates.
+    streamed = (await db.execute(
+        select(func.coalesce(func.sum(TickStat.captured_paise), 0)).where(TickStat.merchant_id == merchant_id)
+    )).scalar_one()
+    total_revenue = await _sum_payments(db, merchant_id, "captured") + int(streamed)
     failed_loss = await _sum_payments(db, merchant_id, "failed")
     failed_count = (await db.execute(
         select(func.count(Payment.id)).where(Payment.merchant_id == merchant_id, Payment.status == "failed")
@@ -85,8 +87,8 @@ async def get_merchant_metrics(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/policy", response_model=PolicySchema)
-async def get_merchant_policy(db: AsyncSession = Depends(get_db)):
-    policy = await PolicyEngine.get_policy(db, settings.MERCHANT_ID)
+async def get_merchant_policy(merchant: Merchant = Depends(current_merchant), db: AsyncSession = Depends(get_db)):
+    policy = await PolicyEngine.get_policy(db, merchant.id)
     return PolicySchema(
         max_single_action_budget=policy.max_single_action_budget if policy else settings.DEFAULT_MAX_BUDGET,
         allowed_action_types=[
@@ -97,8 +99,12 @@ async def get_merchant_policy(db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/policy", response_model=PolicySchema)
-async def update_merchant_policy(body: PolicyUpdateSchema, db: AsyncSession = Depends(get_db)):
-    merchant_id = settings.MERCHANT_ID
+async def update_merchant_policy(
+    body: PolicyUpdateSchema,
+    merchant: Merchant = Depends(current_merchant),
+    db: AsyncSession = Depends(get_db),
+):
+    merchant_id = merchant.id
     new_cap = to_paise(body.max_single_action_budget)
     policy = await PolicyEngine.get_policy(db, merchant_id)
     old_cap = policy.max_single_action_budget_paise if policy else to_paise(settings.DEFAULT_MAX_BUDGET)
@@ -123,8 +129,8 @@ async def update_merchant_policy(body: PolicyUpdateSchema, db: AsyncSession = De
         sanitized_payload={
             "old_max_single_action_budget": to_rupees(old_cap),
             "new_max_single_action_budget": to_rupees(new_cap),
-            "actor": actor_label(),
+            "actor": "merchant",
         },
     )
     await db.commit()
-    return await get_merchant_policy(db)
+    return await get_merchant_policy(merchant, db)

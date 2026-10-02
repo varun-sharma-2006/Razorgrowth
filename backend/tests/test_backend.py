@@ -2,7 +2,6 @@
 import asyncio
 import httpx
 from app.main import app
-from tests.conftest import ADMIN_KEY
 from tests.helpers import approve, scan
 
 
@@ -11,7 +10,6 @@ def test_health_status_endpoint(client):
     status = client.get("/api/v1/merchant/status").json()
     assert status["razorpay_mode"] == "LOCAL DEMO MODE"
     assert status["ai_provider_mode"] == "Demo Heuristic Mode"
-    assert status["auth_required"] is True
     assert status["webhook_configured"] is True
 
 
@@ -31,7 +29,7 @@ def test_ai_scan_evidence_matches_real_data(client):
     action = data["action"]
     assert action["status"] == "PENDING_APPROVAL"
     assert action["ai_provider"] == "Demo Heuristic Mode"
-    assert action["proposed_budget"] == 850.0
+    assert action["proposed_budget"] == 800.0  # ~10% of ₹7,850, rounded to ₹50
     assert len(action["target_payment_ids"]) == 9
     evidence = " | ".join(action["evidence"])
     # Seed data: 3 bank declines, 2 card expirations, 2 insufficient funds, 2 network timeouts.
@@ -65,8 +63,8 @@ def test_approval_creates_one_link_per_failed_payment(client):
     assert {l["payment_id"] for l in links} == set(action["target_payment_ids"])
     assert all(l["status"] == "CREATED" and l["short_url"] for l in links)
     assert len({l["reference_id"] for l in links}) == 9
-    assert round(sum(l["discount"] for l in links), 2) == 850.0
-    assert round(sum(l["amount"] for l in links), 2) == 7000.0  # ₹7,850 owed − ₹850 incentive
+    assert round(sum(l["discount"] for l in links), 2) == 800.0
+    assert round(sum(l["amount"] for l in links), 2) == 7050.0  # ₹7,850 owed − ₹800 incentive
     for l in links:
         assert round(l["original_amount"] - l["discount"], 2) == l["amount"]
 
@@ -109,7 +107,7 @@ def test_concurrent_approvals_execute_once(client):
     async def race():
         transport = httpx.ASGITransport(app=app)
         async with httpx.AsyncClient(transport=transport, base_url="http://test",
-                                     headers={"X-Admin-Key": ADMIN_KEY}) as ac:
+                                     headers={"X-Sandbox-Token": client.headers["X-Sandbox-Token"]}) as ac:
             url = f"/api/v1/actions/{action_id}/decision"
             return await asyncio.gather(*(ac.post(url, json={"decision": "APPROVE"}) for _ in range(3)))
 
@@ -126,7 +124,7 @@ def test_policy_update_is_bounded(client):
 
 
 def test_policy_update_is_audited_and_enforced_on_approval(client):
-    action_id = scan(client)["action"]["id"]  # proposes ₹850 under a ₹1,000 cap
+    action_id = scan(client)["action"]["id"]  # proposes ₹800 under a ₹1,000 cap
 
     res = client.put("/api/v1/merchant/policy", json={"max_single_action_budget": 500})
     assert res.status_code == 200

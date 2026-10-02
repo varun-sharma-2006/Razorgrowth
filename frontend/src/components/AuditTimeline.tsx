@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { History, CheckCircle, ShieldAlert, Cpu, ShieldCheck, UserCheck, Zap, RefreshCw, ChevronDown, ChevronRight, Terminal } from 'lucide-react';
 import { AuditEventItem } from '../types';
+import { simLabel } from '../utils/format';
 
 interface AuditTimelineProps {
   events: AuditEventItem[];
@@ -113,7 +114,7 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ events, onRefresh,
                     <div className="flex items-center space-x-2">
                       {getStatusBadge(evt.status)}
                       <span className="text-[11px] text-slate-500 font-mono">
-                        {new Date(evt.timestamp).toLocaleString()}
+                        {evt.sim_tick != null ? simLabel(evt.sim_tick) : new Date(evt.timestamp).toLocaleString()}
                       </span>
                     </div>
                   </div>

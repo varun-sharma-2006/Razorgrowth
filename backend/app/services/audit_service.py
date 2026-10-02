@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import AuditEvent
 from app.money import utc_now
+from app.simclock import current_sim_tick
 
 _EMAIL_RE = re.compile(r"([A-Za-z0-9._%+-]{1,2})[A-Za-z0-9._%+-]*@([A-Za-z0-9.-]+\.[A-Za-z]{2,})")
 _SECRET_KEYS = {"key_secret", "secret", "password", "authorization", "api_key", "signature"}
@@ -50,7 +51,8 @@ class AuditService:
             component=component,
             message=mask_email(message),
             sanitized_payload=sanitize(sanitized_payload or {}),
-            timestamp=utc_now()
+            timestamp=utc_now(),
+            sim_tick=current_sim_tick.get(),
         )
         db.add(event)
         return event

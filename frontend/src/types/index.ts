@@ -2,8 +2,6 @@ export interface SystemStatus {
   razorpay_mode: string;
   ai_provider_mode: string;
   database_type: string;
-  merchant_id: string;
-  auth_required: boolean;
   webhook_configured: boolean;
 }
 
@@ -32,6 +30,8 @@ export interface PaymentItem {
   failure_reason?: string;
   payment_method: string;
   created_at: string;
+  failed_tick?: number | null;
+  resolved_tick?: number | null;
 }
 
 export interface OpportunityItem {
@@ -78,6 +78,8 @@ export interface RecoveryLink {
   attempts: number;
   error?: string | null;
   paid_at?: string | null;
+  created_tick?: number | null;
+  expires_tick?: number | null;
 }
 
 export type ActionStatus =
@@ -113,6 +115,8 @@ export interface ActionItem {
   recovery_links: RecoveryLink[];
   created_at: string;
   updated_at: string;
+  created_tick?: number | null;
+  auto_proposed: boolean;
 }
 
 export interface AuditEventItem {
@@ -125,6 +129,7 @@ export interface AuditEventItem {
   message: string;
   sanitized_payload?: Record<string, unknown> | null;
   timestamp: string;
+  sim_tick?: number | null;
 }
 
 export interface ScanResponse {
@@ -147,4 +152,110 @@ export interface SimulationResult {
   policy_result?: PolicyCheckResult | null;
   attempts: number;
   links_at_gateway: number;
+}
+
+// ---------------------------------------------------------------- simulator
+
+export interface Scenario {
+  key: string;
+  name: string;
+  difficulty: string;
+  description: string;
+  ranked: boolean;
+  default_cap: number;
+}
+
+export interface Score {
+  lift: number;
+  link_recovered: number;
+  organic_recovered: number;
+  baseline_recovered: number;
+  lost: number;
+  captured: number;
+  failed: number;
+  incentive_spent: number;
+  roi: number | null;
+}
+
+export interface SimState {
+  merchant_id: string;
+  nickname?: string | null;
+  scenario: Scenario;
+  season: string;
+  current_tick: number;
+  run_ticks: number;
+  clock: string;
+  status: 'RUNNING' | 'FINISHED';
+  auto_propose: boolean;
+  wallet_start: number;
+  wallet_available: number;
+  policy_cap: number;
+  score: Score;
+  approvals: number;
+  rejections: number;
+  blocked: number;
+  open_failed_count: number;
+  open_failed_amount: number;
+  links_in_flight: number;
+  pending_action_id?: string | null;
+  leaderboard_entry_id?: string | null;
+}
+
+export interface TickStat {
+  tick: number;
+  orders: number;
+  captured: number;
+  failed_count: number;
+  failed: number;
+  failed_by_method: Record<string, number>;
+  link_recovered: number;
+  organic_recovered: number;
+  baseline_recovered: number;
+  lost: number;
+  incentive_spent: number;
+  wallet_available: number;
+}
+
+export interface ScenarioEvent {
+  tick: number;
+  level: 'info' | 'warning' | 'success';
+  message: string;
+}
+
+export interface AdvanceResponse {
+  state: SimState;
+  stats: TickStat[];
+  events: ScenarioEvent[];
+  new_proposal_id?: string | null;
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  rank?: number | null;
+  nickname: string;
+  scenario: string;
+  season: string;
+  score: number;
+  recovered: number;
+  incentive_spent: number;
+  roi: number;
+  approvals: number;
+  rejections: number;
+  blocked: number;
+  created_at: string;
+}
+
+export interface Leaderboard {
+  scenario: string;
+  season: string;
+  entries: LeaderboardEntry[];
+  you?: LeaderboardEntry | null;
+}
+
+export type FailureReason = 'bank_decline' | 'insufficient_funds' | 'card_expired' | 'network_timeout';
+
+export interface DecisionOptions {
+  rejection_reason?: string;
+  budget_override?: number;
+  exclude_reasons?: FailureReason[];
 }

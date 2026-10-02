@@ -14,7 +14,26 @@ class Merchant(Base):
     email = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now)
 
+    # Simulator sandbox state. Every visitor gets their own merchant.
+    token_hash = Column(String(64), unique=True, index=True, nullable=True)  # sha256 of the sandbox token
+    nickname = Column(String(40), nullable=True)
+    scenario = Column(String, nullable=False, server_default="classic", default="classic")
+    season = Column(String, nullable=False, server_default="", default="")  # e.g. 2026-W40
+    seed = Column(String, nullable=False, server_default="", default="")
+    sim_start = Column(DateTime(timezone=True), nullable=True)  # simulated time of tick 0
+    current_tick = Column(Integer, nullable=False, server_default="0", default=0)  # ticks completed
+    run_ticks = Column(Integer, nullable=False, server_default="168", default=168)
+    status = Column(String, nullable=False, server_default="RUNNING", default="RUNNING")  # RUNNING, FINISHED
+    auto_propose = Column(Boolean, nullable=False, server_default="0", default=False)
+    wallet_start_paise = Column(Integer, nullable=False, server_default="2000000", default=2_000_000)
+    leaderboard_entry_id = Column(String, nullable=True)
+    last_active_at = Column(DateTime(timezone=True), default=utc_now)
+
     policy_rules = relationship("PolicyRule", back_populates="merchant", uselist=False)
+
+    @property
+    def wallet_start(self) -> float:
+        return to_rupees(self.wallet_start_paise)
 
 
 class Customer(Base):
@@ -41,10 +60,15 @@ class Payment(Base):
     customer_email = Column(String, nullable=False)
     amount_paise = Column(Integer, nullable=False)
     currency = Column(String, default="INR")
-    status = Column(String, nullable=False)  # captured, failed, recovered
+    # captured, failed, recovered (paid via a recovery link), self_recovered (customer retried alone), lost
+    status = Column(String, nullable=False)
     failure_reason = Column(String, nullable=True)  # bank_decline, insufficient_funds, card_expired, network_timeout
     payment_method = Column(String, default="upi")
-    created_at = Column(DateTime(timezone=True), default=utc_now)
+    created_at = Column(DateTime(timezone=True), default=utc_now)  # simulated time for sandbox payments
+    failed_tick = Column(Integer, nullable=True, index=True)
+    # Pre-rolled at failure: the tick at which this customer would retry on their own (None = never).
+    organic_tick = Column(Integer, nullable=True, index=True)
+    resolved_tick = Column(Integer, nullable=True)
 
     @property
     def amount(self) -> float:
@@ -100,6 +124,8 @@ class Action(Base):
     retry_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=utc_now)
     updated_at = Column(DateTime(timezone=True), default=utc_now, onupdate=utc_now)
+    created_tick = Column(Integer, nullable=True)
+    auto_proposed = Column(Boolean, nullable=False, server_default="0", default=False)
 
     opportunity = relationship("Opportunity", back_populates="actions")
     audit_events = relationship("AuditEvent", back_populates="action")
@@ -135,6 +161,10 @@ class RecoveryLink(Base):
     error = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now)
     paid_at = Column(DateTime(timezone=True), nullable=True)
+    created_tick = Column(Integer, nullable=True)
+    expires_tick = Column(Integer, nullable=True, index=True)
+    # Pre-rolled when the link is sent: the tick at which the simulated customer pays (None = never).
+    converts_at_tick = Column(Integer, nullable=True, index=True)
 
     action = relationship("Action", back_populates="recovery_links")
 
@@ -182,6 +212,7 @@ class AuditEvent(Base):
     message = Column(Text, nullable=False)
     sanitized_payload = Column(JSON, nullable=True)
     timestamp = Column(DateTime(timezone=True), default=utc_now)
+    sim_tick = Column(Integer, nullable=True)
 
     action = relationship("Action", back_populates="audit_events")
 
@@ -193,3 +224,90 @@ class WebhookEvent(Base):
     id = Column(String, primary_key=True)  # x-razorpay-event-id (or body hash)
     event = Column(String, nullable=False)
     received_at = Column(DateTime(timezone=True), default=utc_now)
+
+
+class TickStat(Base):
+    """Per-hour aggregates for one sandbox; drives the live charts and the score."""
+    __tablename__ = "tick_stats"
+    __table_args__ = (UniqueConstraint("merchant_id", "tick", name="uq_tick_stat_merchant_tick"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    merchant_id = Column(String, ForeignKey("merchants.id"), nullable=False, index=True)
+    tick = Column(Integer, nullable=False)
+    orders = Column(Integer, nullable=False, default=0)
+    captured_paise = Column(Integer, nullable=False, default=0)
+    failed_count = Column(Integer, nullable=False, default=0)
+    failed_paise = Column(Integer, nullable=False, default=0)
+    failed_by_method = Column(JSON, nullable=False, default=dict)
+    link_recovered_paise = Column(Integer, nullable=False, default=0)
+    organic_recovered_paise = Column(Integer, nullable=False, default=0)
+    baseline_recovered_paise = Column(Integer, nullable=False, default=0)  # counterfactual: no agent at all
+    lost_paise = Column(Integer, nullable=False, default=0)
+    incentive_spent_paise = Column(Integer, nullable=False, default=0)
+    wallet_available_paise = Column(Integer, nullable=False, default=0)
+
+    @property
+    def captured(self) -> float:
+        return to_rupees(self.captured_paise)
+
+    @property
+    def failed(self) -> float:
+        return to_rupees(self.failed_paise)
+
+    @property
+    def link_recovered(self) -> float:
+        return to_rupees(self.link_recovered_paise)
+
+    @property
+    def organic_recovered(self) -> float:
+        return to_rupees(self.organic_recovered_paise)
+
+    @property
+    def baseline_recovered(self) -> float:
+        return to_rupees(self.baseline_recovered_paise)
+
+    @property
+    def lost(self) -> float:
+        return to_rupees(self.lost_paise)
+
+    @property
+    def incentive_spent(self) -> float:
+        return to_rupees(self.incentive_spent_paise)
+
+    @property
+    def wallet_available(self) -> float:
+        return to_rupees(self.wallet_available_paise)
+
+
+class LeaderboardEntry(Base):
+    """Kept after a sandbox is cleaned up, so no foreign key to merchants."""
+    __tablename__ = "leaderboard_entries"
+
+    id = Column(String, primary_key=True)
+    merchant_id = Column(String, nullable=True, index=True)
+    nickname = Column(String(40), nullable=False)
+    scenario = Column(String, nullable=False, index=True)
+    season = Column(String, nullable=False, index=True)
+    score_paise = Column(Integer, nullable=False)  # incremental recovered revenue vs doing nothing
+    recovered_paise = Column(Integer, nullable=False)
+    incentive_paise = Column(Integer, nullable=False)
+    approvals = Column(Integer, nullable=False, default=0)
+    rejections = Column(Integer, nullable=False, default=0)
+    blocked = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+    @property
+    def score(self) -> float:
+        return to_rupees(self.score_paise)
+
+    @property
+    def recovered(self) -> float:
+        return to_rupees(self.recovered_paise)
+
+    @property
+    def incentive_spent(self) -> float:
+        return to_rupees(self.incentive_paise)
+
+    @property
+    def roi(self) -> float:
+        return round(self.score_paise / self.incentive_paise, 2) if self.incentive_paise else 0.0

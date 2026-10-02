@@ -2,16 +2,19 @@ import hashlib
 import json
 from typing import Optional
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
-from sqlalchemy import func, or_, select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.database import get_db
-from app.models import Action, Opportunity, Payment, RecoveryLink, WebhookEvent
+from app.models import Action, RecoveryLink, WebhookEvent
 from app.money import format_inr, utc_now
 from app.services.audit_service import AuditService
+from app.services.link_outcomes import settle_link
 from app.services.razorpay_service import RazorpayService
 
 router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
+
+SYSTEM_MERCHANT = "_system"  # audit owner for deliveries that can't be tied to a merchant
 
 LINK_STATUS_BY_EVENT = {
     "payment_link.paid": "PAID",
@@ -23,7 +26,7 @@ LINK_STATUS_BY_EVENT = {
 async def _reject(db: AsyncSession, message: str, payload: dict) -> HTTPException:
     AuditService.log_event(
         db=db,
-        merchant_id=settings.MERCHANT_ID,
+        merchant_id=SYSTEM_MERCHANT,
         step="WEBHOOK_RECEIVED",
         status="BLOCKED",
         component="WebhookHandler",
@@ -70,6 +73,8 @@ async def handle_razorpay_webhook(
     payment_entity = (payload.get("payment") or {}).get("entity") or {}
     log = {"event": event_name, "event_id": event_id, "signature_verified": True}
     message = f"Received signature-verified webhook event '{event_name}'"
+    merchant_id = SYSTEM_MERCHANT
+    action_id = None
 
     new_link_status = LINK_STATUS_BY_EVENT.get(event_name)
     if new_link_status and (link_entity.get("id") or link_entity.get("reference_id")):
@@ -84,20 +89,17 @@ async def handle_razorpay_webhook(
         if link is None:
             message += " for an unknown payment link (ignored)"
         else:
-            link.status = new_link_status
+            action = await db.get(Action, link.action_id)
+            merchant_id, action_id = action.merchant_id, action.id
             log.update(recovery_link_id=link.id, original_payment_id=link.payment_id)
+            await settle_link(db, link, new_link_status, utc_now())
             if new_link_status == "PAID":
-                link.paid_at = utc_now()
-                payment = await db.get(Payment, link.payment_id)
-                if payment is not None and payment.status == "failed":
-                    payment.status = "recovered"
                 message = (
                     f"Recovery payment received: {format_inr(link.amount_paise)} for original payment "
                     f"{link.payment_id} via link {link.razorpay_link_id}"
                 )
-                await _resolve_opportunity_if_complete(db, link.action_id)
             else:
-                message = f"Recovery link for {link.payment_id} is now {new_link_status}"
+                message = f"Recovery link for {link.payment_id} is now {link.status}"
     elif payment_entity:
         log.update(payment_id=payment_entity.get("id"), order_id=payment_entity.get("order_id"),
                    amount=(payment_entity.get("amount") or 0) / 100, status=payment_entity.get("status"))
@@ -105,7 +107,8 @@ async def handle_razorpay_webhook(
 
     AuditService.log_event(
         db=db,
-        merchant_id=settings.MERCHANT_ID,
+        merchant_id=merchant_id,
+        action_id=action_id,
         step="WEBHOOK_RECEIVED",
         status="SUCCESS",
         component="WebhookHandler",
@@ -114,17 +117,3 @@ async def handle_razorpay_webhook(
     )
     await db.commit()
     return {"status": "processed", "event": event_name, "event_id": event_id, "signature_verified": True}
-
-
-async def _resolve_opportunity_if_complete(db: AsyncSession, action_id: str) -> None:
-    action = await db.get(Action, action_id)
-    if action is None or action.is_simulation:
-        return
-    await db.flush()
-    unpaid = (await db.execute(
-        select(func.count(RecoveryLink.id)).where(RecoveryLink.action_id == action_id, RecoveryLink.status != "PAID")
-    )).scalar_one()
-    if unpaid == 0:
-        opp = await db.get(Opportunity, action.opportunity_id)
-        if opp is not None:
-            opp.status = "RESOLVED"

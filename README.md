@@ -1,286 +1,190 @@
 # RazorGrowth ⚡
 
-> **Permissioned AI Merchant-Growth Agent for the Razorpay AI Buildathon 2026**  
-> *Recovering lost merchant payment revenue with deterministic policy safety, explicit human-in-the-loop approval, idempotent Razorpay execution, and complete visual auditability.*
+> **A permissioned AI merchant-growth agent, playable as a simulator. Built for the Razorpay AI Buildathon 2026.**  
+> *Run a store for a simulated week. Payments fail. Your AI agent proposes Razorpay recovery campaigns, but it can't spend a rupee without your approval, and a deterministic policy engine blocks anything unsafe. Win back as much lost revenue as you can.*
 
-🔗 **Repo**: [github.com/varun-sharma-2006/Razorgrowth](https://github.com/varun-sharma-2006/Razorgrowth) | 📜 **License**: [MIT License](LICENSE)  
-👥 **Team**: Built by [Varun Sharma](https://github.com/varun-sharma-2006) and [Yashika Garg](https://github.com/yashikagarg16) for the Razorpay AI Buildathon 2026.
+🎮 **Play**: [razorgrowth.vercel.app](https://razorgrowth.vercel.app) | 🔗 **Repo**: [github.com/varun-sharma-2006/Razorgrowth](https://github.com/varun-sharma-2006/Razorgrowth) | 📜 **License**: [MIT](LICENSE)  
+👥 **Team**: [Varun Sharma](https://github.com/varun-sharma-2006) and [Yashika Garg](https://github.com/yashikagarg16).
 
 ---
 
-## 🎬 Demo
+## 🎬 What it is
 
 ![RazorGrowth Demo](./docs/demo.svg)
 
-*AI detects a failed-payment recovery opportunity → Policy Engine validates the incentive budget against the merchant safety cap → Merchant explicitly approves → Razorpay sends one recovery Payment Link per customer, deduplicated by `reference_id` → Signed webhooks mark payments recovered → Audit timeline updates live.*
+Every visitor gets a **private sandbox store**: no sign-up and no shared password. Their browser holds a secret sandbox token.
+
+| | |
+|---|---|
+| ⏯️ **Play / pause / 1× 2× 5× 10×** | One simulated week in hourly ticks: about 3 minutes at 1×. Space toggles play. |
+| 💰 **Starting balance** | A ₹20,000 incentive wallet. Discounts are reserved when a link is sent and only *spent* when a customer pays. |
+| 🤖 **AI agent** | Proposes recovery campaigns on demand or every 12 hours on auto-pilot. You approve, reject, or **approve with changes** (resize the incentive, skip failure types). |
+| 🛡️ **Policy engine** | Checks every proposal against your safety cap (a slider) and remaining wallet, at proposal time and again at approval. |
+| 📈 **Live charts** | Recovered revenue *with the agent vs without it*, and failures every 6 hours by payment method, with scenario events marked. |
+| 🏆 **Weekly leaderboard** | Everyone playing a scenario in the same ISO week faces the **same customers and failures**, so scores are directly comparable. |
+| 🧪 **Safety lab** | Policy block, API timeout → safe halt, and lost response → deduplication, all run through the production executor with injected faults. |
+
+### Scenarios
+
+| Scenario | Difficulty | What happens |
+|---|---|---|
+| Steady Week | Easy | A normal week; learn the rhythm of failures and recovery. |
+| Festive Sale | Medium | Days 3–5: traffic ×2.6, bigger baskets, banks under load. |
+| UPI Outage | Hard | Day 3, 10:00–18:00: UPI failures spike ×7 (mostly timeouts). |
+| Card Expiry Wave | Hard | An issuer reissued cards: expired-card declines all week, and they rarely convert. |
+| Classic Demo | Practice | The original fixed demo: 9 failed payments worth ₹7,850. Not ranked. |
 
 ---
 
-## 📊 Market Context
+## 🧮 How scoring works
 
-In India's fast-growing digital commerce ecosystem, payment drop-off rates typically range from **5% to 15%** depending on payment method (UPI, cards, netbanking) and issuing bank downtime. For high-volume merchants, unmonitored failed payments represent a significant drain on recoverable top-line revenue.
-
-Traditional analytics dashboards leave merchants with static reports, forcing manual intervention to diagnose failures, select eligible high-intent customers, and issue recovery payment links.
-
-**RazorGrowth** bridges this gap with an AI agent that monitors payment telemetry, identifies recovery opportunities, and prepares structured recovery campaigns—**without ever holding unrestricted financial authority**.
+Your score is **incremental revenue: what came back beyond what would have come back with no agent at all.**
 
 ```
-  Failed Payment Drop-off          AI Opportunity Scan           Policy Safety Check           Human Approval           Razorpay REST Execution
-┌─────────────────────────┐     ┌───────────────────────┐     ┌─────────────────────┐     ┌────────────────────┐     ┌────────────────────────┐
-│ 9 Failures (₹7,850.00)  │ ──► │ Schema-validated      │ ──► │ Budget Cap ≤ ₹1,000 │ ──► │ Merchant Review &  │ ──► │ 9 Payment Links        │
-│ Bank drop / Card expire │     │ evidence & factors    │     │ Action Type Allowed │     │ Explicit Approval  │     │ reference_id dedup     │
-└─────────────────────────┘     └───────────────────────┘     └─────────────────────┘     └────────────────────┘     └────────────────────────┘
+score = (paid through recovery links + customers who retried on their own) − (what would have come back with no agent)
 ```
 
----
+Every failed payment has a pre-rolled, hidden fate, deterministic per scenario and week:
 
-## 📌 Core Architectural Principles
+- **Some customers would retry on their own** (35% of network timeouts, 10% of expired cards, more for loyal customers). A passive player scores exactly **₹0**.
+- **Customers pay a recovery link** with a probability that rises with the discount (√ of the discount share) and loyalty, and **decays as the failure gets older** (half-life ≈ 1 day). Scanning promptly pays.
+- **Cannibalisation:** a customer who would have retried anyway uses your discounted link instead, so the discount is wasted. Over-generous campaigns score worse.
+- Links expire after 48h (releasing their reserved incentive); unrecovered failures are lost after 72h.
 
-1. **Controlled Autonomy Over Unrestricted Authority**:
-   - The LLM reasons, identifies opportunities, and generates recommendations. Its output must pass a strict schema (`AIRecommendation`) or it is discarded in favour of a data-derived heuristic.
-   - Deterministic backend code enforces financial limits and executes API calls.
-   - The merchant retains explicit approval authority before any payment link is generated. Admin endpoints require an `X-Admin-Key`.
+Future outcomes are never sent to the browser, so players can't cheat by reading the API.
 
-2. **Deterministic Safety Policy Engine**:
-   - Validates every proposal against merchant policy limits (e.g. a maximum ₹1,000 incentive budget), both when the proposal is created **and again at approval time**.
-   - Policy changes are bounded (`0 < cap ≤ ₹1,00,000`) and recorded in the audit trail.
-   - Generates an explicit **"Why Was This Action Allowed?" Checklist**:
-     - `[✓] Action type allowed (failed_payment_recovery)`
-     - `[✓] Proposed budget ₹850.00 is positive`
-     - `[✓] Proposed Budget ₹850.00 ≤ Merchant Cap ₹1,000.00`
-     - `[✓] Human Approval Guard active`
-     - `[✓] Action Idempotency Key generated`
-     - `STATUS: SAFE TO APPROVE`
-
-3. **Fault-Tolerant Idempotent Execution**:
-   - Approval is an atomic state transition (`UPDATE … WHERE status = 'PENDING_APPROVAL'`), so double clicks or concurrent requests cannot execute an action twice.
-   - Each recovery link gets a deterministic Razorpay `reference_id` derived from the action's idempotency key and the payment. Razorpay rejects a second link with the same `reference_id`, so a retry after a lost response adopts the existing link instead of creating a duplicate.
-   - Timeouts, connection errors, 429 and 5xx responses are retried with exponential backoff; 4xx errors are not. When retries are exhausted the action enters **SAFE HALT**, and re-running it is safe.
-
-4. **Transparent Audit Trail**:
-   - Step-by-step lifecycle log (`DATA_ANALYSIS` → `PATTERN_DETECTION` → `POLICY_EVALUATION` → `MERCHANT_APPROVAL` → `RAZORPAY_API_CALL` / `RETRY_ATTEMPT` → `SAFE_HALT` / `WEBHOOK_RECEIVED`, plus `POLICY_UPDATE`).
-   - Payloads are sanitized before storage: customer emails are masked and secrets redacted.
-   - The UI streams new events while an approval or simulation is running.
+We tuned the model by simulating strategies. On Steady Week, *no discount* < *half the AI's budget* < *the AI's default* < *scanning every 4 hours*, and doubling the budget mostly runs into the cap and wallet limits.
 
 ---
 
-## 🏗️ System Architecture
+## 📌 Core architectural principles
+
+1. **Controlled autonomy.** The LLM proposes; deterministic code enforces limits and executes. LLM output must pass a strict schema (`AIRecommendation`) or it is discarded for a data-derived heuristic. The agent is *told* the cap and wallet but never *trusted* with them.
+2. **Deterministic policy engine.** It checks action type, a positive budget, the safety cap, the remaining wallet, the human-approval guard and the idempotency key, and produces a "Why was this allowed?" checklist. The cap slider is bounded and every change is audited.
+3. **Idempotent execution.** Approval is an atomic state transition, so concurrent approvals execute once. Each link gets a deterministic Razorpay `reference_id`. Timeouts, 429s and 5xx responses are retried with backoff; 4xx errors are not. Exhausted retries trigger a **safe halt**, and re-running is safe.
+4. **One code path.** Simulated customer payments settle links through the same function as real signed `payment_link.paid` webhooks.
+5. **Transparent audit trail.** Every step (`DATA_ANALYSIS → PATTERN_DETECTION → POLICY_EVALUATION → MERCHANT_APPROVAL → RAZORPAY_API_CALL / RETRY_ATTEMPT / SAFE_HALT → WEBHOOK_RECEIVED`) is stamped with the simulated hour. Emails are masked and secrets redacted.
+
+---
+
+## 🏗️ Architecture
 
 ![RazorGrowth Architecture](./docs/architecture.svg)
 
-<details>
-<summary>🔍 View Text / ASCII Architecture Diagram</summary>
-
 ```
-                    RAZORGROWTH
-                         │
-                         ▼
-             React + TypeScript UI
-                         │
-             REST / HTTP (X-Admin-Key)
-                         │
-                         ▼
-                 FastAPI Backend
-                         │
-       ┌─────────────────┼─────────────────┐
-       │                 │                 │
-       ▼                 ▼                 ▼
-  AI Service       Policy Engine      Recovery Executor
-(Gemini/OpenAI/  (Deterministic      (retries, reference_id
- Heuristic Mode)  Safety Rules)       dedup, safe halt)
-       │                 │                 │
-       └────────┬────────┘                 ▼
-                │             Razorpay Payment Links API
-                ▼              (Test Mode or Local Demo Adapter)
-        Action / Approval                  │
-                │                          ▼
-                ▼               Signed webhooks (payment_link.paid)
-          Audit Service
-                │
-                ▼
-PostgreSQL / SQLite (Alembic migrations)
+ React + TypeScript simulator ── X-Sandbox-Token ──► FastAPI (FastAPI Cloud)
+   live SVG charts, game loop                          │
+                                                       ├─ Simulation engine   (orders, failures, customer behaviour per tick)
+                                                       ├─ AI service          (Gemini / OpenAI / heuristic, schema-validated)
+                                                       ├─ Policy engine       (cap, wallet, approval guard)
+                                                       ├─ Recovery executor   (Razorpay Payment Links, retries, safe halt)
+                                                       ├─ Link outcomes       (simulated customers + signed webhooks)
+                                                       └─ Audit service
+                                                       ▼
+                                          SQLite / PostgreSQL (Alembic migrations)
 ```
 
-</details>
+---
+
+## 🛠️ Tech stack
+
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS, hand-built accessible SVG charts (crosshair tooltips, keyboard navigation, table view; colour-blind-validated palette).
+- **Backend**: Python 3.13, FastAPI, Pydantic v2, async SQLAlchemy 2, Alembic. Money is stored as integer paise.
+- **AI**: Gemini 2.5 Flash or OpenAI GPT-4o-mini (JSON mode), or a zero-config heuristic.
+- **Payments**: Razorpay Payment Links with `reference_id` deduplication, HMAC-SHA256 webhooks. The simulator uses a local gateway that mimics Razorpay's uniqueness rule.
 
 ---
 
-## ✨ Key Features
+## 🚀 Run it locally
 
-- **AI-Powered Revenue Recovery**: Scans transaction logs and customer purchase history, and states only facts computed from the data (failure-reason breakdown, repeat-customer share, failure age).
-  > **Estimated Recoverable = Failed Payments Loss (₹7,850.00) × 70% Conversion Rate = ₹5,495.00** (rate configurable via `RECOVERY_CONVERSION_RATE`)
-- **Per-Customer Recovery Links**: Approval sends each affected customer a Razorpay Payment Link for their original amount minus their share of the incentive budget (e.g. ₹7,850 owed − ₹850 incentive = ₹7,000 across 9 links). Every link keeps at least ₹1 payable.
-- **Dual Execution Modes**: Live **Razorpay Test Mode** (`RAZORPAY_KEY_ID` & `RAZORPAY_KEY_SECRET`) or a zero-credential **Local Demo Adapter** that mimics Razorpay's `reference_id` uniqueness rule.
-- **Verified Webhooks**: Every webhook must carry a valid `X-Razorpay-Signature` (HMAC SHA256). Redeliveries are ignored by event id. `payment_link.paid` marks the original payment recovered and resolves the opportunity once every link is paid.
-- **Judges' Live Failure Control Room** (runs the production code paths with injected faults; never calls real Razorpay):
-  - **Demo 1 (Policy Limit Block)**: AI proposes 3× the current cap → Policy Engine BLOCKS the action.
-  - **Demo 2 (API Timeout & Safe Halt)**: Every gateway call times out → 3 real attempts with backoff, same `reference_id` → `SAFE HALT`, zero links created.
-  - **Demo 3 (Lost Response)**: The first request creates the link but its response is lost → the retry hits a `reference_id` conflict and adopts the existing link → exactly one link exists.
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS (+ `tailwindcss-animate`), Lucide Icons, Axios.
-- **Backend**: Python 3.13, FastAPI, Pydantic V2, async SQLAlchemy 2, Alembic.
-- **Database**: PostgreSQL (asyncpg) or SQLite (aiosqlite) for development. Money is stored as integer paise.
-- **AI Integration**: `AIService` supporting Gemini 2.5 Flash (async client, JSON mode), OpenAI GPT-4o-mini (JSON mode), or the zero-config Demo Heuristic Mode.
-- **Payment API**: Razorpay Payment Links (`/v1/payment_links`) with `reference_id` deduplication, HMAC SHA256 webhook verification.
-
----
-
-## 🚀 Quick Start Guide
-
-### Prerequisites
-- Python 3.13
-- Node.js 18+ & npm
-
-### 1. Backend Setup
+Prerequisites: Python 3.13 and Node.js 18+.
 
 ```bash
+# Terminal 1: backend
 cd backend
-
-# Create virtual environment
 python -m venv venv
-# On Windows:
-venv\Scripts\activate
-# On Linux/macOS:
-source venv/bin/activate
-
-# Install dependencies (requirements-dev.txt adds pytest)
+venv\Scripts\activate          # macOS/Linux: source venv/bin/activate
 pip install -r requirements-dev.txt
-
-# Create environment file from template
 cp .env.example .env
-
-# Start FastAPI server (runs migrations, then seeds 9 failed payments totalling ₹7,850)
 python -m uvicorn app.main:app --reload --port 8000
-```
-- Server URL: `http://localhost:8000`
-- Interactive API Docs: `http://localhost:8000/docs`
 
-With the default `.env` the backend runs fully offline. Set `ADMIN_API_KEY` to require sign-in (the UI will prompt for the key), and `RAZORPAY_WEBHOOK_SECRET` to accept webhooks.
-
-> Upgrading from an older checkout? Delete `backend/razorgrowth.db` once; the schema is now managed by Alembic and demo data is re-seeded automatically.
-
-### 2. Frontend Setup
-
-In a second terminal:
-
-```bash
+# Terminal 2: frontend
 cd frontend
 npm install
-npm run dev
+npm run dev                    # http://localhost:5173 (API proxied to :8000)
 ```
-- Application Dashboard: `http://localhost:5173` (API calls are proxied to port 8000)
+
+Interactive API docs: `http://localhost:8000/docs`.
 
 ---
 
-## 🧪 Running Automated Tests
+## 🔌 API overview
+
+| Public | |
+|---|---|
+| `GET /api/v1/scenarios` | Scenario catalogue |
+| `POST /api/v1/sandboxes` | Start a run → `{token, state}` (rate-limited per IP) |
+| `GET /api/v1/leaderboard?scenario=&entry_id=` | Weekly top 20 + your rank |
+| `POST /api/v1/webhooks/razorpay` | Signed Razorpay webhooks |
+
+| Per sandbox (`X-Sandbox-Token`) | |
+|---|---|
+| `GET /sim/state` · `POST /sim/advance {ticks≤24}` · `GET /sim/series` · `GET /sim/events` | Clock, score and charts |
+| `PUT /sim/settings {auto_propose}` · `POST /sim/leaderboard {nickname}` | Auto-pilot, submit score |
+| `POST /opportunities/scan` · `POST /actions/{id}/decision` | Ask the agent; approve (optionally with `budget_override`, `exclude_reasons`) or reject |
+| `PUT /merchant/policy` · `GET /payments` · `GET /audit` · `POST /simulation/*` | Cap, telemetry, audit trail, safety lab |
+
+Operator-only (`X-Admin-Key`): `GET /admin/stats`, `DELETE /admin/leaderboard/{id}`, `POST /admin/cleanup`. Idle sandboxes are cleaned up after 3 days; leaderboard entries are kept.
+
+---
+
+## 🧪 Tests
 
 ```bash
 cd backend
 python -m pytest -q
 ```
 
-Each test gets a fresh, migrated, seeded SQLite database, and AI providers are forced into heuristic mode (LLM responses are mocked where needed). The suite covers:
+57 tests, each on a fresh migrated database:
 
-- **Flows** (`test_backend.py`): metrics, evidence matching the seeded data, re-scan reusing the pending proposal, one link per failed payment with correct incentive split, rejection, invalid decision values (422), double and **concurrent** approvals (exactly one executes), bounded and audited policy updates, the secondary policy check at approval time, and audit sanitization.
-- **Security** (`test_security.py`): 401 without/with a wrong admin key, webhooks rejected without a signature, with a bad signature or with no secret configured, `payment_link.paid` processing, and duplicate webhook deliveries.
-- **Execution** (`test_execution.py`): real retries then safe halt, lost-response deduplication, no retries on permanent errors, deterministic `reference_id`s, and incentive allocation edge cases.
-- **AI** (`test_ai.py`): valid LLM output is used, an over-budget LLM proposal is blocked by policy, and malformed, negative-budget, wrong-type or out-of-range LLM output falls back to the heuristic.
+- **Simulator** (`test_sim.py`): identical streams for the same scenario and week, scenario events on time (the UPI spike), wallet reservation and settlement, simulated customers paying or expiring, approve-with-changes, the wallet limit, auto-pilot never executing on its own, a full run to the leaderboard (a passive run scores exactly 0), unranked practice mode, nickname validation, and future outcomes never exposed.
+- **Security** (`test_security.py`): token required, sandboxes isolated from each other, rate limiting, admin key, webhook signatures, redelivery dedup, opportunity resolution.
+- **Flows** (`test_backend.py`): evidence matches the data, re-scan reuse, one link per payment, rejection, invalid decisions, double and **concurrent** approval, bounded and audited policy, the secondary policy check, audit sanitisation.
+- **Execution / AI** (`test_execution.py`, `test_ai.py`): real retries → safe halt, lost-response dedup, permanent errors not retried, incentive allocation; LLM output validation and fallback.
 
-CI (`.github/workflows/ci.yml`) runs the backend tests and the frontend type-check/build on every push and pull request.
-
----
-
-## 🌐 Deployment Guide
-
-### Deploying Backend (Render / Railway)
-1. Connect your GitHub repository to [Render](https://render.com).
-2. Root Directory: `backend`
-3. Build Command: `pip install -r requirements.txt`
-4. Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT` (migrations run on startup; set `AUTO_MIGRATE=false` to run `alembic upgrade head` yourself)
-5. Environment variables:
-   - `ADMIN_API_KEY`: **required** for any shared deployment.
-   - `CORS_ORIGINS`: your frontend URL, e.g. `https://razorgrowth.vercel.app`.
-   - `RAZORPAY_WEBHOOK_SECRET`: the secret configured for the webhook in the Razorpay dashboard (endpoint: `/api/v1/webhooks/razorpay`).
-   - `DATABASE_URL`: a PostgreSQL URL for persistent data (Render's disk is ephemeral, so SQLite resets on every deploy).
-   - Optional: `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `GEMINI_API_KEY` / `OPENAI_API_KEY`.
-
-### Deploying Frontend (Vercel / Netlify)
-1. Connect the repository to [Vercel](https://vercel.com).
-2. Root Directory: `frontend`
-3. Build Command: `npm run build`
-4. Output Directory: `dist`
-5. Update the backend URL in `frontend/vercel.json` if yours differs.
+CI runs the backend tests and the frontend build on every push.
 
 ---
 
-## 📂 Project Directory Structure
+## 🌐 Deployment
+
+- **Frontend**: Vercel (root `frontend`). `frontend/vercel.json` rewrites `/api/*` to the backend.
+- **Backend**: [FastAPI Cloud](https://fastapicloud.com) (no credit card needed): `cd backend && fastapi deploy`. Environment: `DATABASE_URL`, `RAZORPAY_WEBHOOK_SECRET`, optional `ADMIN_API_KEY`, AI keys and Razorpay test keys. Migrations run on startup.
+
+---
+
+## 📂 Project structure
 
 ```
-Razorgrowth/
-├── .github/workflows/ci.yml     # Backend tests + frontend build
-├── backend/
-│   ├── app/
-│   │   ├── main.py              # FastAPI entrypoint, lifespan (migrate + seed), CORS, auth wiring
-│   │   ├── config.py            # Pydantic settings & environment config
-│   │   ├── database.py          # Async engine (SQLite FKs enforced), sessions
-│   │   ├── models.py            # SQLAlchemy entities (money in paise)
-│   │   ├── schemas.py           # Pydantic request/response schemas
-│   │   ├── security.py          # X-Admin-Key dependency
-│   │   ├── money.py             # Paise/rupee and UTC helpers
-│   │   ├── migrations_runner.py # Programmatic `alembic upgrade head`
-│   │   ├── seed.py              # Demo data (10 customers, 9 failed payments)
-│   │   ├── services/
-│   │   │   ├── ai_service.py        # Telemetry, LLM call + schema validation, heuristic fallback
-│   │   │   ├── policy_engine.py     # Deterministic safety rules & checklist
-│   │   │   ├── recovery_service.py  # Incentive allocation, retrying link executor, safe halt
-│   │   │   ├── razorpay_service.py  # Razorpay / demo / fault-injecting clients, webhook HMAC
-│   │   │   └── audit_service.py     # Sanitizing audit logger
-│   │   └── routers/
-│   │       ├── merchant.py          # Status (public), metrics, policy
-│   │       ├── payments.py          # Payment & customer telemetry
-│   │       ├── opportunities.py     # AI scan & proposal generation
-│   │       ├── actions.py           # Atomic approval state machine
-│   │       ├── webhooks.py          # Signed Razorpay webhook listener
-│   │       ├── simulation.py        # Demo control room (fault injection)
-│   │       └── audit.py             # Audit timeline endpoint
-│   ├── migrations/              # Alembic environment and versions
-│   ├── tests/                   # Pytest suite (isolated DB per test)
-│   ├── alembic.ini
-│   ├── requirements.txt         # Runtime dependencies (pinned)
-│   ├── requirements-dev.txt     # + test dependencies
-│   └── .env.example
-├── frontend/
-│   ├── public/favicon.svg
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Navbar.tsx                 # Integration & auth status badges
-│   │   │   ├── MetricsOverview.tsx        # KPI cards & methodology
-│   │   │   ├── FailedPaymentsList.tsx     # Failure telemetry table
-│   │   │   ├── OpportunityCard.tsx        # Recommendation & recovery links
-│   │   │   ├── ApprovalModal.tsx          # Human approval screen & policy checklist
-│   │   │   ├── AuditTimeline.tsx          # Live audit trail
-│   │   │   ├── FailureSimulationPanel.tsx # Judges' demo control room
-│   │   │   └── AdminKeyPrompt.tsx         # Admin key sign-in
-│   │   ├── services/api.ts                # Axios client (admin key, error messages)
-│   │   ├── utils/format.ts                # INR formatting
-│   │   ├── types/                         # TypeScript interfaces
-│   │   ├── App.tsx                        # Main dashboard view
-│   │   └── index.css                      # Tailwind CSS & custom styling
-│   ├── package.json
-│   └── vite.config.ts
-├── docs/
-│   ├── architecture.svg
-│   └── demo.svg
-├── README.md
-└── LICENSE                      # MIT License
+backend/app/
+  main.py, config.py, database.py, models.py, schemas.py, money.py, simclock.py
+  sandbox.py                  # X-Sandbox-Token → merchant
+  ratelimit.py, security.py   # sandbox creation limiter, admin key
+  sim/        scenarios.py · behavior.py (customer model) · engine.py (ticks) · state.py (score)
+  services/   ai_service · policy_engine · proposal_service · recovery_service ·
+              razorpay_service · link_outcomes · sandbox_service · audit_service
+  routers/    sim · merchant · payments · opportunities · actions · webhooks · simulation · audit · admin
+backend/migrations/           # Alembic (0001 initial, 0002 simulator)
+backend/tests/                # 57 tests
+frontend/src/
+  App.tsx                     # game loop, views, keyboard shortcuts
+  components/ Landing · SimTopBar · KpiStrip · AgentPanel · ApprovalModal · CampaignsTab ·
+              EndOfRunModal · LeaderboardTable · Tour · FailedPaymentsList · AuditTimeline ·
+              FailureSimulationPanel · OpportunityCard · charts/{RecoveryRaceChart, FailuresChart}
 ```
 
 ---
 
 ## 📜 License
 
-Distributed under the [MIT License](LICENSE). Built by **[Varun Sharma](https://github.com/varun-sharma-2006)** and **[Yashika Garg](https://github.com/yashikagarg16)** for the **Razorpay AI Buildathon 2026**.
+[MIT](LICENSE). Built by **[Varun Sharma](https://github.com/varun-sharma-2006)** and **[Yashika Garg](https://github.com/yashikagarg16)** for the **Razorpay AI Buildathon 2026**.

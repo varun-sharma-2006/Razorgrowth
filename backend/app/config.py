@@ -14,8 +14,8 @@ class Settings(BaseSettings):
     AUTO_MIGRATE: bool = True  # run `alembic upgrade head` on startup
 
     # Security
-    # When set, every /api/v1 endpoint except /merchant/status and /webhooks requires
-    # the `X-Admin-Key` header. Leave blank only for local demos.
+    # Operator key for /admin endpoints (leaderboard moderation). Visitors use sandbox tokens.
+    # Blank disables the admin API.
     ADMIN_API_KEY: str = ""
     CORS_ORIGINS: str = "http://localhost:5173"
 
@@ -35,15 +35,13 @@ class Settings(BaseSettings):
     OPENAI_MODEL: str = "gpt-4o-mini"
 
     # Default Merchant Safety Policy
-    MERCHANT_ID: str = "merch_razorgrowth_01"
     DEFAULT_MAX_BUDGET: float = 1000.0  # INR ₹1,000 max single action limit
     MAX_POLICY_BUDGET_CEILING: float = 100000.0  # hard upper bound for policy updates
     ALLOWED_ACTION_TYPES: str = "failed_payment_recovery,checkout_recovery"
 
     # Recovery model assumptions
     RECOVERY_CONVERSION_RATE: float = 0.70
-    HEURISTIC_PROPOSED_BUDGET: float = 850.0  # incentive pool proposed in heuristic mode
-    HEURISTIC_MAX_BUDGET_SHARE: float = 0.15  # never propose more than 15% of the lost amount
+    HEURISTIC_BUDGET_SHARE: float = 0.10  # heuristic mode proposes ~10% of the lost revenue as incentive
 
     @property
     def is_razorpay_live_test_mode(self) -> bool:
@@ -60,10 +58,6 @@ class Settings(BaseSettings):
         if self.OPENAI_API_KEY:
             return "OpenAI GPT-4o-mini"
         return "Demo Heuristic Mode"
-
-    @property
-    def auth_required(self) -> bool:
-        return bool(self.ADMIN_API_KEY)
 
     @property
     def cors_origins(self) -> List[str]:

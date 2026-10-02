@@ -36,7 +36,6 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection) -> None:
-    _guard_legacy_schema(connection)
     context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=True)
     with context.begin_transaction():
         context.run_migrations()
@@ -45,7 +44,12 @@ def do_run_migrations(connection) -> None:
 async def run_migrations_online() -> None:
     connectable = create_async_engine(database_url, poolclass=NullPool)
     async with connectable.connect() as connection:
+        await connection.run_sync(_guard_legacy_schema)
+        # SQLAlchemy 2 auto-begins a transaction; if it is still open when Alembic starts, Alembic
+        # treats it as the caller's and never commits (losing the alembic_version row).
+        await connection.commit()
         await connection.run_sync(do_run_migrations)
+        await connection.commit()
     await connectable.dispose()
 
 

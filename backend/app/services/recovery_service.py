@@ -6,9 +6,10 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
-from app.models import Action, Opportunity, Payment, RecoveryLink
+from app.models import Action, Customer, Merchant, Opportunity, Payment, RecoveryLink
 from app.money import format_inr, to_rupees
 from app.services.audit_service import AuditService
+from app.sim.behavior import LINK_LIFETIME_TICKS, link_payment_tick, loyalty
 from app.services.razorpay_service import (
     PaymentLinkClient,
     PermanentGatewayError,
@@ -196,11 +197,20 @@ async def execute_recovery_action(
     max_attempts = max_attempts or settings.RAZORPAY_MAX_ATTEMPTS
     backoff_seconds = settings.RAZORPAY_RETRY_BACKOFF_SECONDS if backoff_seconds is None else backoff_seconds
 
+    merchant = await db.get(Merchant, action.merchant_id)
     by_id = {
         p.id: p
         for p in (await db.execute(select(Payment).where(Payment.id.in_(action.target_payment_ids)))).scalars()
     }
-    payments = [by_id[pid] for pid in action.target_payment_ids if pid in by_id]
+    # Payments can resolve (or be lost) while a proposal waits for approval; only chase open ones.
+    payments = [by_id[pid] for pid in action.target_payment_ids if pid in by_id and by_id[pid].status == "failed"]
+    simulate_customers = merchant is not None and merchant.sim_start is not None and not action.is_simulation
+    if simulate_customers:
+        customers = {
+            c.id: c for c in (await db.execute(
+                select(Customer).where(Customer.id.in_({p.customer_id for p in payments}))
+            )).scalars()
+        }
     shares = allocate_incentive([p.amount_paise for p in payments], action.proposed_budget_paise)
     await db.refresh(action, ["recovery_links"])  # never lazy-load in async code
     existing = {l.payment_id: l for l in action.recovery_links}
@@ -231,6 +241,22 @@ async def execute_recovery_action(
         before = link.attempts
         ok = await _create_link_with_retry(db, action, link, client, max_attempts, backoff_seconds)
         attempts += link.attempts - before
+        if ok and merchant is not None and merchant.sim_start is not None:
+            link.created_tick = merchant.current_tick
+            if simulate_customers:
+                link.expires_tick = merchant.current_tick + LINK_LIFETIME_TICKS
+                customer = customers.get(payment.customer_id)
+                link.converts_at_tick = link_payment_tick(
+                    seed=merchant.seed,
+                    payment_key=payment.id.rsplit("-", 1)[-1],
+                    reason=payment.failure_reason or "unknown",
+                    failed_tick=payment.failed_tick if payment.failed_tick is not None else merchant.current_tick,
+                    created_tick=merchant.current_tick,
+                    discount_share=link.discount_paise / link.original_amount_paise if link.original_amount_paise else 0,
+                    loyalty_score=loyalty(customer.successful_payments if customer else 0),
+                    organic_tick=payment.organic_tick,
+                )
+            await db.commit()
         if not ok:
             action.status = "HALTED"
             action.failure_reason = (

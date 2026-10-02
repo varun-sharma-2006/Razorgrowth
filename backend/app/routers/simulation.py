@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
+from app.sandbox import current_merchant
 from app.database import get_db
-from app.models import Action, Opportunity, Payment
+from app.models import Action, Merchant, Opportunity, Payment
 from app.money import to_paise
 from app.schemas import ActionSchema, SimulationResponse
 from app.services.policy_engine import PolicyEngine
@@ -18,9 +19,10 @@ router = APIRouter(prefix="/simulation", tags=["Failure Simulations"])
 
 
 async def _create_simulation_action(
-    db: AsyncSession, label: str, title: str, budget_paise: int, target_payment_ids: List[str], status: str
+    db: AsyncSession, merchant: Merchant, label: str, title: str, budget_paise: int,
+    target_payment_ids: List[str], status: str,
 ) -> Action:
-    merchant_id = settings.MERCHANT_ID
+    merchant_id = merchant.id
     suffix = uuid.uuid4().hex[:6].upper()
     opp = Opportunity(
         id=f"opp_sim_{suffix.lower()}",
@@ -54,10 +56,11 @@ async def _create_simulation_action(
     return action
 
 
-async def _demo_target_payment(db: AsyncSession) -> Payment:
+async def _demo_target_payment(db: AsyncSession, merchant: Merchant) -> Payment:
     payment = (await db.execute(
         select(Payment)
-        .where(Payment.merchant_id == settings.MERCHANT_ID, Payment.status.in_(["failed", "recovered"]))
+        .where(Payment.merchant_id == merchant.id,
+               Payment.status.in_(["failed", "recovered", "self_recovered", "lost"]))
         .order_by(Payment.created_at.desc(), Payment.id)
     )).scalars().first()
     if payment is None:
@@ -66,18 +69,18 @@ async def _demo_target_payment(db: AsyncSession) -> Payment:
 
 
 @router.post("/policy-block", response_model=SimulationResponse)
-async def simulate_policy_block(db: AsyncSession = Depends(get_db)):
+async def simulate_policy_block(merchant: Merchant = Depends(current_merchant), db: AsyncSession = Depends(get_db)):
     """Demo 1: an AI proposal of 3× the merchant's cap is blocked before approval or execution."""
-    policy = await PolicyEngine.get_policy(db, settings.MERCHANT_ID)
+    policy = await PolicyEngine.get_policy(db, merchant.id)
     cap = policy.max_single_action_budget_paise if policy else to_paise(settings.DEFAULT_MAX_BUDGET)
     budget = cap * 3
 
     action = await _create_simulation_action(
-        db, "BLOCK", "Excessive Budget Offer (Policy Violation Test)", budget, [], "PROPOSED"
+        db, merchant, "BLOCK", "Excessive Budget Offer (Policy Violation Test)", budget, [], "PROPOSED"
     )
     policy_result = await PolicyEngine.evaluate_action_policy(
         db=db,
-        merchant_id=settings.MERCHANT_ID,
+        merchant_id=merchant.id,
         action_type=action.action_type,
         proposed_budget_paise=budget,
         idempotency_key=action.idempotency_key,
@@ -101,11 +104,11 @@ async def simulate_policy_block(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/api-timeout", response_model=SimulationResponse)
-async def simulate_api_timeout(db: AsyncSession = Depends(get_db)):
+async def simulate_api_timeout(merchant: Merchant = Depends(current_merchant), db: AsyncSession = Depends(get_db)):
     """Demo 2: every gateway call times out. The real retry loop runs, then halts safely."""
-    payment = await _demo_target_payment(db)
+    payment = await _demo_target_payment(db, merchant)
     action = await _create_simulation_action(
-        db, "TIMEOUT", "Razorpay Payment Link Creation (Network Timeout Test)",
+        db, merchant, "TIMEOUT", "Razorpay Payment Link Creation (Network Timeout Test)",
         to_paise(50), [payment.id], "EXECUTING",
     )
     await db.commit()
@@ -127,15 +130,15 @@ async def simulate_api_timeout(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/lost-response", response_model=SimulationResponse)
-async def simulate_lost_response(db: AsyncSession = Depends(get_db)):
+async def simulate_lost_response(merchant: Merchant = Depends(current_merchant), db: AsyncSession = Depends(get_db)):
     """Demo 3: the first request reaches the gateway but its response is lost.
 
     The retry reuses the same reference_id, the gateway reports a conflict, and the existing
     link is adopted — exactly one link exists afterwards.
     """
-    payment = await _demo_target_payment(db)
+    payment = await _demo_target_payment(db, merchant)
     action = await _create_simulation_action(
-        db, "LOST", "Razorpay Payment Link Creation (Lost Response Test)",
+        db, merchant, "LOST", "Razorpay Payment Link Creation (Lost Response Test)",
         to_paise(50), [payment.id], "EXECUTING",
     )
     await db.commit()

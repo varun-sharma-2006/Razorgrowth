@@ -64,7 +64,7 @@ def test_invalid_llm_output_falls_back_to_heuristic(client, fake_llm, raw):
     assert res.status_code == 200
     action = res.json()["action"]
     assert action["ai_provider"] == "Demo Heuristic Mode (fallback from Gemini 2.5 Flash)"
-    assert action["proposed_budget"] == 850.0
+    assert action["proposed_budget"] == 800.0
     failed = [e for e in client.get("/api/v1/audit").json()
               if e["step"] == "PATTERN_DETECTION" and e["status"] == "FAILED"]
     assert failed

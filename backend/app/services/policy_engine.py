@@ -22,6 +22,7 @@ class PolicyEngine:
         proposed_budget_paise: int,
         idempotency_key: Optional[str],
         action_id: Optional[str] = None,
+        wallet_available_paise: Optional[int] = None,
     ) -> PolicyCheckResult:
         """Deterministic policy check. Adds a POLICY_EVALUATION audit event; the caller commits."""
         policy = await PolicyEngine.get_policy(db, merchant_id)
@@ -40,7 +41,9 @@ class PolicyEngine:
         budget_positive = proposed_budget_paise > 0
         budget_within_cap = proposed_budget_paise <= max_budget_paise
         has_idempotency_key = bool(idempotency_key)
-        all_passed = type_allowed and budget_positive and budget_within_cap and has_idempotency_key and requires_approval
+        within_wallet = wallet_available_paise is None or proposed_budget_paise <= wallet_available_paise
+        all_passed = (type_allowed and budget_positive and budget_within_cap and within_wallet
+                      and has_idempotency_key and requires_approval)
 
         checklist = [
             PolicyChecklistItem(rule=f"Action type allowed ({action_type})", passed=type_allowed),
@@ -49,6 +52,10 @@ class PolicyEngine:
                 rule=f"Proposed Budget {format_inr(proposed_budget_paise)} ≤ Merchant Cap {format_inr(max_budget_paise)}",
                 passed=budget_within_cap,
             ),
+            *([PolicyChecklistItem(
+                rule=f"Budget {format_inr(proposed_budget_paise)} ≤ incentive wallet {format_inr(wallet_available_paise)}",
+                passed=within_wallet,
+            )] if wallet_available_paise is not None else []),
             PolicyChecklistItem(rule="Human Approval Guard active", passed=requires_approval),
             PolicyChecklistItem(rule="Action Idempotency Key generated", passed=has_idempotency_key),
             PolicyChecklistItem(rule="Financial Execution Safety Guard", passed=all_passed),
@@ -64,6 +71,12 @@ class PolicyEngine:
                 f"{format_inr(max_budget_paise)}"
             )
             code = "REJECTED_BUDGET_CAP_EXCEEDED"
+        elif not within_wallet:
+            reason = (
+                f"Proposed budget {format_inr(proposed_budget_paise)} exceeds the remaining incentive wallet "
+                f"{format_inr(wallet_available_paise)}"
+            )
+            code = "REJECTED_WALLET_EXHAUSTED"
         elif not has_idempotency_key:
             reason, code = "Action has no idempotency key", "REJECTED_NO_IDEMPOTENCY_KEY"
         elif not requires_approval:
@@ -92,6 +105,7 @@ class PolicyEngine:
                 "proposed_budget": to_rupees(proposed_budget_paise),
                 "max_allowed_budget": to_rupees(max_budget_paise),
                 "action_type": action_type,
+                "wallet_available": to_rupees(wallet_available_paise) if wallet_available_paise is not None else None,
                 "policy_result": code,
                 "checklist": [item.model_dump() for item in checklist],
             },

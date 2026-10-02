@@ -1,13 +1,14 @@
 import json
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Literal, Tuple
+from datetime import datetime
+from typing import Dict, List, Literal, Optional, Tuple
 import httpx
 from pydantic import BaseModel, Field, ValidationError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
-from app.models import Action, Customer, Payment, RecoveryLink
+from app.models import Action, Customer, Payment, RecoveryLink, TickStat
 from app.money import as_utc, format_inr, to_paise, to_rupees, utc_now
 from app.services.audit_service import AuditService
 
@@ -89,9 +90,22 @@ class AIService:
         return settings.ai_provider_mode
 
     @staticmethod
-    async def collect_telemetry(db: AsyncSession, merchant_id: str) -> PaymentTelemetry:
-        """Gathers the failed payments that are not already covered by a live recovery link."""
-        total = len((await db.execute(select(Payment.id).where(Payment.merchant_id == merchant_id))).all())
+    async def collect_telemetry(db: AsyncSession, merchant_id: str, now: Optional[datetime] = None) -> PaymentTelemetry:
+        """Gathers the failed payments that are not already covered by a live recovery link.
+
+        `now` is the merchant's simulated time, so failure ages are measured in simulated hours.
+        """
+        # Live-stream orders are stored as hourly aggregates (only failures get their own row),
+        # so count seeded payment rows plus streamed orders.
+        seeded = (await db.execute(
+            select(func.count(Payment.id)).where(
+                Payment.merchant_id == merchant_id, (Payment.failed_tick.is_(None)) | (Payment.failed_tick < 0)
+            )
+        )).scalar_one()
+        streamed = (await db.execute(
+            select(func.coalesce(func.sum(TickStat.orders), 0)).where(TickStat.merchant_id == merchant_id)
+        )).scalar_one()
+        total = int(seeded) + int(streamed)
 
         covered = (
             select(RecoveryLink.payment_id)
@@ -116,7 +130,7 @@ class AIService:
             customers = (await db.execute(select(Customer).where(Customer.id.in_(customer_ids)))).scalars().all()
             prior_success = sum(1 for c in customers if (c.successful_payments or 0) > 0)
 
-        now = utc_now()
+        now = now or utc_now()
         ages = [(now - as_utc(p.created_at)).total_seconds() / 3600 for p in eligible]
 
         return PaymentTelemetry(
@@ -130,7 +144,11 @@ class AIService:
         )
 
     @staticmethod
-    def build_prompt(t: PaymentTelemetry) -> str:
+    def build_prompt(t: PaymentTelemetry, budget_limit_paise: Optional[int] = None) -> str:
+        limit_note = (
+            f", and at most {format_inr(budget_limit_paise)} (the merchant's current safety cap and wallet)"
+            if budget_limit_paise is not None else ""
+        )
         return f"""You are RazorGrowth AI, a permissioned merchant-growth agent for Razorpay.
 You can only PROPOSE a failed-payment recovery campaign. A deterministic policy engine and a
 human merchant decide whether it runs.
@@ -152,7 +170,7 @@ Respond with ONLY a JSON object with exactly these keys:
 - "decision_factors": array of 2-6 strings explaining why recovery is worthwhile
 - "recommendation_reason": string
 - "confidence_score": number between 0 and 100
-- "proposed_budget": incentive pool in INR (number greater than 0)
+- "proposed_budget": incentive pool in INR (number greater than 0){limit_note}
 - "risk_score": one of "LOW", "MEDIUM", "HIGH"
 """
 
@@ -196,13 +214,12 @@ Respond with ONLY a JSON object with exactly these keys:
         return AIRecommendation.model_validate_json(text)
 
     @staticmethod
-    def heuristic_recommendation(t: PaymentTelemetry) -> AIRecommendation:
+    def heuristic_recommendation(t: PaymentTelemetry, budget_limit_paise: Optional[int] = None) -> AIRecommendation:
         lost = t.failed_amount_paise
-        budget_paise = min(
-            to_paise(settings.HEURISTIC_PROPOSED_BUDGET),
-            to_paise(round(to_rupees(lost) * settings.HEURISTIC_MAX_BUDGET_SHARE)),
-        )
-        budget_paise = max(budget_paise, 100)  # never propose less than ₹1
+        # ~10% of the lost revenue, rounded to the nearest ₹50, never below ₹100.
+        budget_paise = max(round(lost * settings.HEURISTIC_BUDGET_SHARE / 5000) * 5000, 10000)
+        if budget_limit_paise is not None and budget_limit_paise >= 10000:
+            budget_paise = min(budget_paise, budget_limit_paise // 5000 * 5000)  # stay within the merchant's limits
         expected = round(lost * settings.RECOVERY_CONVERSION_RATE)
         discount_pct = budget_paise / lost * 100 if lost else 0.0
 
@@ -238,7 +255,11 @@ Respond with ONLY a JSON object with exactly these keys:
         )
 
     @staticmethod
-    async def recommend(db: AsyncSession, merchant_id: str, t: PaymentTelemetry) -> Recommendation:
+    async def recommend(
+        db: AsyncSession, merchant_id: str, t: PaymentTelemetry, budget_limit_paise: Optional[int] = None
+    ) -> Recommendation:
+        """`budget_limit_paise` tells the agent the merchant's limits (cap and wallet). The policy engine
+        still enforces them independently: the agent is guided, never trusted."""
         """Produces a validated recommendation. Adds audit events; the caller commits."""
         AuditService.log_event(
             db=db,
@@ -262,7 +283,7 @@ Respond with ONLY a JSON object with exactly these keys:
         llm_configured = bool(settings.GEMINI_API_KEY or settings.OPENAI_API_KEY)
         if llm_configured:
             try:
-                provider, raw = await AIService._call_llm(AIService.build_prompt(t))
+                provider, raw = await AIService._call_llm(AIService.build_prompt(t, budget_limit_paise))
                 data = AIService.parse_llm_output(raw)
                 AuditService.log_event(
                     db=db,
@@ -290,7 +311,7 @@ Respond with ONLY a JSON object with exactly these keys:
                 sanitized_payload={"provider": settings.ai_provider_mode, "error": failure},
             )
 
-        data = AIService.heuristic_recommendation(t)
+        data = AIService.heuristic_recommendation(t, budget_limit_paise)
         label = f"{HEURISTIC_PROVIDER} (fallback from {settings.ai_provider_mode})" if llm_configured else HEURISTIC_PROVIDER
         AuditService.log_event(
             db=db,

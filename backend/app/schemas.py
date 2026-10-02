@@ -19,8 +19,6 @@ class SystemStatusSchema(BaseModel):
     razorpay_mode: str  # "RAZORPAY TEST MODE" or "LOCAL DEMO MODE"
     ai_provider_mode: str  # "Gemini 2.5 Flash", "OpenAI GPT-4o-mini", "Demo Heuristic Mode"
     database_type: str
-    merchant_id: str
-    auth_required: bool
     webhook_configured: bool
 
 
@@ -59,6 +57,9 @@ class PaymentSchema(ORMModel):
     failure_reason: Optional[str] = None
     payment_method: str
     created_at: UTCDateTime
+    failed_tick: Optional[int] = None
+    resolved_tick: Optional[int] = None
+    # organic_tick is deliberately not exposed: it would reveal future customer behaviour.
 
 
 class OpportunitySchema(ORMModel):
@@ -103,6 +104,9 @@ class RecoveryLinkSchema(ORMModel):
     attempts: int
     error: Optional[str] = None
     paid_at: Optional[UTCDateTime] = None
+    created_tick: Optional[int] = None
+    expires_tick: Optional[int] = None
+    # converts_at_tick is deliberately not exposed (future customer behaviour).
 
 
 class ActionSchema(ORMModel):
@@ -128,6 +132,8 @@ class ActionSchema(ORMModel):
     recovery_links: List[RecoveryLinkSchema] = Field(default_factory=list)
     created_at: UTCDateTime
     updated_at: UTCDateTime
+    created_tick: Optional[int] = None
+    auto_proposed: bool = False
 
 
 class AuditEventSchema(ORMModel):
@@ -140,6 +146,7 @@ class AuditEventSchema(ORMModel):
     message: str
     sanitized_payload: Optional[Dict[str, Any]] = None
     timestamp: UTCDateTime
+    sim_tick: Optional[int] = None
 
 
 class ScanResponse(BaseModel):
@@ -159,9 +166,16 @@ class PolicySchema(BaseModel):
     requires_human_approval: bool
 
 
+FailureReason = Literal["bank_decline", "insufficient_funds", "card_expired", "network_timeout"]
+
+
 class ActionDecisionSchema(BaseModel):
     decision: Literal["APPROVE", "REJECT"]
     rejection_reason: Optional[str] = Field(default=None, max_length=500)
+    # "Approve with changes": the merchant may resize the incentive or skip failure types.
+    # Both are re-checked by the policy engine before execution.
+    budget_override: Optional[float] = Field(default=None, gt=0, le=settings.MAX_POLICY_BUDGET_CEILING)
+    exclude_reasons: List[FailureReason] = Field(default_factory=list, max_length=4)
 
 
 class DecisionResponse(BaseModel):
@@ -177,3 +191,123 @@ class SimulationResponse(BaseModel):
     policy_result: Optional[PolicyCheckResult] = None
     attempts: int = 0
     links_at_gateway: int = 0
+
+
+# ---------------------------------------------------------------- simulator
+
+class ScenarioSchema(BaseModel):
+    key: str
+    name: str
+    difficulty: str
+    description: str
+    ranked: bool
+    default_cap: float
+
+
+class ScenarioEventSchema(BaseModel):
+    tick: int
+    level: str
+    message: str
+
+
+class TickStatSchema(ORMModel):
+    tick: int
+    orders: int
+    captured: float
+    failed_count: int
+    failed: float
+    failed_by_method: Dict[str, int]
+    link_recovered: float
+    organic_recovered: float
+    baseline_recovered: float
+    lost: float
+    incentive_spent: float
+    wallet_available: float
+
+
+class ScoreSchema(BaseModel):
+    lift: float  # the score: recovered beyond what would have come back with no agent
+    link_recovered: float
+    organic_recovered: float
+    baseline_recovered: float
+    lost: float
+    captured: float
+    failed: float
+    incentive_spent: float
+    roi: Optional[float] = None  # lift per rupee of incentive spent
+
+
+class SimStateSchema(BaseModel):
+    merchant_id: str
+    nickname: Optional[str] = None
+    scenario: ScenarioSchema
+    season: str
+    current_tick: int
+    run_ticks: int
+    clock: str
+    status: str
+    auto_propose: bool
+    wallet_start: float
+    wallet_available: float
+    policy_cap: float
+    score: ScoreSchema
+    approvals: int
+    rejections: int
+    blocked: int
+    open_failed_count: int
+    open_failed_amount: float
+    links_in_flight: int
+    pending_action_id: Optional[str] = None
+    leaderboard_entry_id: Optional[str] = None
+
+
+class SandboxCreateSchema(BaseModel):
+    scenario: str = Field(min_length=1, max_length=32)
+    nickname: Optional[str] = Field(default=None, max_length=24)
+
+
+class SandboxCreatedSchema(BaseModel):
+    token: str
+    state: SimStateSchema
+
+
+class AdvanceRequestSchema(BaseModel):
+    ticks: int = Field(default=1, ge=1, le=24)
+
+
+class AdvanceResponseSchema(BaseModel):
+    state: SimStateSchema
+    stats: List[TickStatSchema]
+    events: List[ScenarioEventSchema]
+    new_proposal_id: Optional[str] = None
+
+
+class SimSettingsSchema(BaseModel):
+    auto_propose: Optional[bool] = None
+
+
+class LeaderboardSubmitSchema(BaseModel):
+    nickname: str = Field(min_length=2, max_length=24, pattern=r"^[A-Za-z0-9 _.\-]+$")
+
+
+class LeaderboardEntrySchema(ORMModel):
+    id: str
+    rank: Optional[int] = None
+    nickname: str
+    scenario: str
+    season: str
+    score: float
+    recovered: float
+    incentive_spent: float
+    roi: float
+    approvals: int
+    rejections: int
+    blocked: int
+    created_at: UTCDateTime
+
+
+class LeaderboardSchema(BaseModel):
+    scenario: str
+    season: str
+    entries: List[LeaderboardEntrySchema]
+    you: Optional[LeaderboardEntrySchema] = None

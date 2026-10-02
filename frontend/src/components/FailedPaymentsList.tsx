@@ -1,13 +1,14 @@
 import React from 'react';
 import { AlertCircle, CreditCard, Smartphone, Globe, UserCheck } from 'lucide-react';
 import { PaymentItem } from '../types';
+import { simLabel } from '../utils/format';
 
 interface FailedPaymentsListProps {
   payments: PaymentItem[];
 }
 
 export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments }) => {
-  const failedOnly = payments.filter(p => p.status === 'failed' || p.status === 'recovered');
+  const failedOnly = payments.filter(p => p.status !== 'captured');
   const lost = failedOnly.filter(p => p.status === 'failed').reduce((acc, p) => acc + p.amount, 0);
 
   const getReasonBadge = (reason?: string) => {
@@ -57,7 +58,7 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
         <table className="w-full text-left text-xs border-collapse">
           <thead>
             <tr className="border-b border-slate-800 text-slate-400 uppercase tracking-wider font-semibold">
-              <th className="py-3 px-4">Transaction ID</th>
+              <th className="py-3 px-4">Failed at</th>
               <th className="py-3 px-4">Customer</th>
               <th className="py-3 px-4">Method</th>
               <th className="py-3 px-4">Failure Reason</th>
@@ -68,7 +69,7 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
           <tbody className="divide-y divide-slate-800/60">
             {failedOnly.map((p) => (
               <tr key={p.id} className="hover:bg-slate-800/40 transition">
-                <td className="py-3 px-4 font-mono text-slate-300">{p.id}</td>
+                <td className="py-3 px-4 text-slate-300 whitespace-nowrap">{p.failed_tick != null && p.failed_tick >= 0 ? simLabel(p.failed_tick) : 'Before the week'}</td>
                 <td className="py-3 px-4">
                   <div className="font-semibold text-white">{p.customer_name}</div>
                   <div className="text-slate-400 text-[11px]">{p.customer_email}</div>
@@ -86,16 +87,7 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
                   ₹{p.amount.toLocaleString('en-IN')}
                 </td>
                 <td className="py-3 px-4 text-center">
-                  {p.status === 'recovered' ? (
-                    <span className="inline-flex items-center space-x-1 text-emerald-400 text-[11px] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                      <UserCheck className="w-3 h-3" />
-                      <span>Recovered</span>
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center text-amber-300 text-[11px] font-semibold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
-                      Unrecovered
-                    </span>
-                  )}
+                  <StatusPill status={p.status} />
                 </td>
               </tr>
             ))}
@@ -103,5 +95,22 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
         </table>
       </div>
     </div>
+  );
+};
+
+const STATUS_STYLE: Record<string, { label: string; className: string }> = {
+  failed: { label: 'Unrecovered', className: 'text-amber-300 bg-amber-500/10 border-amber-500/20' },
+  recovered: { label: 'Recovered via link', className: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' },
+  self_recovered: { label: 'Customer retried', className: 'text-sky-300 bg-sky-500/10 border-sky-500/20' },
+  lost: { label: 'Lost', className: 'text-slate-400 bg-slate-800 border-slate-700' }
+};
+
+const StatusPill: React.FC<{ status: string }> = ({ status }) => {
+  const style = STATUS_STYLE[status] ?? STATUS_STYLE.failed;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded border ${style.className}`}>
+      {status === 'recovered' && <UserCheck className="w-3 h-3" />}
+      {style.label}
+    </span>
   );
 };
