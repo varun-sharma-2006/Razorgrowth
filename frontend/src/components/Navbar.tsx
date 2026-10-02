@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldAlert, Cpu, Database, Zap, RefreshCw } from 'lucide-react';
+import { Cpu, Database, Zap, RefreshCw, Lock, Unlock } from 'lucide-react';
 import { SystemStatus } from '../types';
 
 interface NavbarProps {
@@ -44,7 +44,7 @@ export const Navbar: React.FC<NavbarProps> = ({ status, onRefresh, loading }) =>
               : 'bg-amber-500/10 text-amber-400 border-amber-500/30'
           }`}>
             <span className={`w-2 h-2 rounded-full ${isRazorpayTestMode ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
-            <span>{status?.razorpay_mode || "RAZORPAY ADAPTER"}</span>
+            <span>{status?.razorpay_mode ?? 'Connecting…'}</span>
           </div>
 
           {/* AI Provider Badge */}
@@ -54,13 +54,28 @@ export const Navbar: React.FC<NavbarProps> = ({ status, onRefresh, loading }) =>
               : 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30'
           }`}>
             <Cpu className="w-3.5 h-3.5" />
-            <span>AI: {status?.ai_provider_mode || "Demo Heuristic Mode"}</span>
+            <span>AI: {status?.ai_provider_mode ?? '—'}</span>
           </div>
+
+          {/* Auth Badge */}
+          {status && (
+            <div
+              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg border font-medium ${
+                status.auth_required
+                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                  : 'bg-rose-500/10 text-rose-300 border-rose-500/30'
+              }`}
+              title={status.auth_required ? 'Admin endpoints require X-Admin-Key' : 'ADMIN_API_KEY not set: admin endpoints are open'}
+            >
+              {status.auth_required ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3.5 h-3.5" />}
+              <span>{status.auth_required ? 'Admin Auth On' : 'No Auth (Demo)'}</span>
+            </div>
+          )}
 
           {/* Database Badge */}
           <div className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 border border-slate-700 font-medium">
             <Database className="w-3.5 h-3.5 text-slate-400" />
-            <span>{status?.database_type || "PostgreSQL / SQLite"}</span>
+            <span>{status?.database_type ?? '—'}</span>
           </div>
 
           {/* Refresh Button */}

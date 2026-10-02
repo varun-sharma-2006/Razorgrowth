@@ -13,7 +13,7 @@
     "jsx": "react-jsx",
     "strict": true,
     "types": ["vite/client"],
-    "noUnusedLocals": false,
+    "noUnusedLocals": true,
     "noUnusedParameters": false,
     "noImplicitReturns": false
   },

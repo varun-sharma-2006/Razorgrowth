@@ -3,6 +3,8 @@ export interface SystemStatus {
   ai_provider_mode: string;
   database_type: string;
   merchant_id: string;
+  auth_required: boolean;
+  webhook_configured: boolean;
 }
 
 export interface MerchantMetrics {
@@ -15,6 +17,8 @@ export interface MerchantMetrics {
   approved_actions_count: number;
   policy_blocked_count: number;
   max_budget_limit: number;
+  recovery_links_sent: number;
+  recovered_amount: number;
 }
 
 export interface PaymentItem {
@@ -54,38 +58,93 @@ export interface PolicyCheckResult {
   max_allowed_budget: number;
   proposed_budget: number;
   action_type_allowed: boolean;
-  checklist?: PolicyRuleItem[];
+  checklist: PolicyRuleItem[];
 }
+
+export type RecoveryLinkStatus = 'PENDING' | 'CREATED' | 'PAID' | 'FAILED' | 'EXPIRED' | 'CANCELLED';
+
+export interface RecoveryLink {
+  id: string;
+  payment_id: string;
+  customer_name: string;
+  customer_email: string;
+  original_amount: number;
+  discount: number;
+  amount: number;
+  reference_id: string;
+  razorpay_link_id?: string | null;
+  short_url?: string | null;
+  status: RecoveryLinkStatus;
+  attempts: number;
+  error?: string | null;
+  paid_at?: string | null;
+}
+
+export type ActionStatus =
+  | 'PROPOSED'
+  | 'POLICY_BLOCKED'
+  | 'PENDING_APPROVAL'
+  | 'APPROVED'
+  | 'REJECTED'
+  | 'EXECUTING'
+  | 'COMPLETED'
+  | 'HALTED';
 
 export interface ActionItem {
   id: string;
   idempotency_key: string;
   opportunity_id: string;
   merchant_id: string;
+  action_type: string;
+  is_simulation: boolean;
   title: string;
+  ai_provider?: string | null;
   evidence: string[];
   decision_factors: string[];
   recommendation_reason: string;
   confidence_score: number;
   proposed_budget: number;
   risk_score: string;
-  status: string;
-  razorpay_order_id?: string;
-  razorpay_payment_link?: string;
-  failure_reason?: string;
+  target_payment_ids: string[];
+  policy_result?: PolicyCheckResult | null;
+  status: ActionStatus;
+  failure_reason?: string | null;
   retry_count: number;
+  recovery_links: RecoveryLink[];
   created_at: string;
   updated_at: string;
 }
 
 export interface AuditEventItem {
   id: string;
-  action_id?: string;
+  action_id?: string | null;
   merchant_id: string;
   step: string;
   status: string;
   component: string;
   message: string;
-  sanitized_payload?: Record<string, any>;
+  sanitized_payload?: Record<string, unknown> | null;
   timestamp: string;
+}
+
+export interface ScanResponse {
+  opportunity: OpportunityItem;
+  action: ActionItem;
+  policy_check: PolicyCheckResult;
+  reused_existing: boolean;
+}
+
+export interface DecisionResponse {
+  status: ActionStatus;
+  action: ActionItem;
+}
+
+export interface SimulationResult {
+  demo: string;
+  status: ActionStatus;
+  message: string;
+  action: ActionItem;
+  policy_result?: PolicyCheckResult | null;
+  attempts: number;
+  links_at_gateway: number;
 }

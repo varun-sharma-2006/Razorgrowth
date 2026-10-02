@@ -5,9 +5,10 @@ import { AuditEventItem } from '../types';
 interface AuditTimelineProps {
   events: AuditEventItem[];
   onRefresh: () => void;
+  live?: boolean;
 }
 
-export const AuditTimeline: React.FC<AuditTimelineProps> = ({ events, onRefresh }) => {
+export const AuditTimeline: React.FC<AuditTimelineProps> = ({ events, onRefresh, live = false }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const toggleExpand = (id: string) => {
@@ -44,8 +45,10 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ events, onRefresh 
         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/20">FAILED</span>;
       case 'HALTED':
         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">SAFE HALT</span>;
-      default:
+      case 'PENDING':
         return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">PENDING</span>;
+      default:
+        return <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-400">{status}</span>;
     }
   };
 
@@ -63,6 +66,13 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ events, onRefresh 
             End-to-end evidence log detailing AI analysis, deterministic policy evaluation, merchant decisions, and Razorpay API calls.
           </p>
         </div>
+        <div className="flex items-center gap-2">
+        {live && (
+          <span className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-[11px] font-semibold">
+            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
+            <span>Live</span>
+          </span>
+        )}
         <button
           onClick={onRefresh}
           className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition"
@@ -70,6 +80,7 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ events, onRefresh 
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Refresh Trail</span>
         </button>
+        </div>
       </div>
 
       {/* Timeline List */}
@@ -102,7 +113,7 @@ export const AuditTimeline: React.FC<AuditTimelineProps> = ({ events, onRefresh 
                     <div className="flex items-center space-x-2">
                       {getStatusBadge(evt.status)}
                       <span className="text-[11px] text-slate-500 font-mono">
-                        {new Date(evt.timestamp).toLocaleTimeString()}
+                        {new Date(evt.timestamp).toLocaleString()}
                       </span>
                     </div>
                   </div>

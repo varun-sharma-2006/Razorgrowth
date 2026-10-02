@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import {
   SystemStatus,
   MerchantMetrics,
@@ -6,73 +6,94 @@ import {
   OpportunityItem,
   ActionItem,
   AuditEventItem,
-  PolicyCheckResult
+  ScanResponse,
+  DecisionResponse,
+  SimulationResult
 } from '../types';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '') + '/api/v1';
+const ADMIN_KEY_STORAGE = 'razorgrowth.adminKey';
+
+const client = axios.create({
+  baseURL: (import.meta.env.VITE_API_BASE_URL || '') + '/api/v1'
+});
+
+// The admin key lives only in this tab's sessionStorage; it is never baked into the bundle.
+export const adminKey = {
+  get(): string | null {
+    try {
+      return sessionStorage.getItem(ADMIN_KEY_STORAGE);
+    } catch {
+      return null;
+    }
+  },
+  set(key: string) {
+    try {
+      sessionStorage.setItem(ADMIN_KEY_STORAGE, key);
+    } catch {
+      /* storage unavailable: key is lost on reload */
+    }
+  },
+  clear() {
+    try {
+      sessionStorage.removeItem(ADMIN_KEY_STORAGE);
+    } catch {
+      /* ignore */
+    }
+  }
+};
+
+client.interceptors.request.use((config) => {
+  const key = adminKey.get();
+  if (key) config.headers.set('X-Admin-Key', key);
+  return config;
+});
+
+export const isUnauthorized = (err: unknown): boolean =>
+  axios.isAxiosError(err) && err.response?.status === 401;
+
+/** Turns an API error into a message a merchant can read. */
+export function errorMessage(err: unknown): string {
+  if (axios.isAxiosError(err)) {
+    const e = err as AxiosError<{ detail?: unknown }>;
+    if (!e.response) return 'Cannot reach the RazorGrowth backend. Check that it is running.';
+    const detail = e.response.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (Array.isArray(detail)) {
+      return detail.map((d: { msg?: string }) => d.msg ?? JSON.stringify(d)).join('; ');
+    }
+    return `Request failed with HTTP ${e.response.status}`;
+  }
+  return err instanceof Error ? err.message : 'Unexpected error';
+}
 
 export const api = {
-  getSystemStatus: async (): Promise<SystemStatus> => {
-    const res = await axios.get(`${API_BASE}/merchant/status`);
-    return res.data;
-  },
+  getSystemStatus: async (): Promise<SystemStatus> => (await client.get('/merchant/status')).data,
 
-  getMerchantMetrics: async (): Promise<MerchantMetrics> => {
-    const res = await axios.get(`${API_BASE}/merchant/metrics`);
-    return res.data;
-  },
+  getMerchantMetrics: async (): Promise<MerchantMetrics> => (await client.get('/merchant/metrics')).data,
 
   updatePolicyBudget: async (maxBudget: number): Promise<void> => {
-    await axios.put(`${API_BASE}/merchant/policy`, { max_single_action_budget: maxBudget });
+    await client.put('/merchant/policy', { max_single_action_budget: maxBudget });
   },
 
-  getPayments: async (): Promise<PaymentItem[]> => {
-    const res = await axios.get(`${API_BASE}/payments`);
-    return res.data;
-  },
+  getPayments: async (): Promise<PaymentItem[]> => (await client.get('/payments')).data,
 
-  getOpportunities: async (): Promise<OpportunityItem[]> => {
-    const res = await axios.get(`${API_BASE}/opportunities`);
-    return res.data;
-  },
+  getOpportunities: async (): Promise<OpportunityItem[]> => (await client.get('/opportunities')).data,
 
-  scanForOpportunities: async (): Promise<{
-    opportunity: OpportunityItem;
-    action: ActionItem;
-    policy_check: PolicyCheckResult;
-  }> => {
-    const res = await axios.post(`${API_BASE}/opportunities/scan`);
-    return res.data;
-  },
+  scanForOpportunities: async (): Promise<ScanResponse> => (await client.post('/opportunities/scan')).data,
 
-  getActions: async (): Promise<ActionItem[]> => {
-    const res = await axios.get(`${API_BASE}/actions`);
-    return res.data;
-  },
+  getActions: async (): Promise<ActionItem[]> => (await client.get('/actions')).data,
 
-  getActionDetail: async (id: string): Promise<ActionItem> => {
-    const res = await axios.get(`${API_BASE}/actions/${id}`);
-    return res.data;
-  },
+  getActionDetail: async (id: string): Promise<ActionItem> => (await client.get(`/actions/${id}`)).data,
 
-  decideAction: async (id: string, decision: 'APPROVE' | 'REJECT', reason?: string) => {
-    const res = await axios.post(`${API_BASE}/actions/${id}/decision`, { decision, rejection_reason: reason });
-    return res.data;
-  },
+  decideAction: async (id: string, decision: 'APPROVE' | 'REJECT', reason?: string): Promise<DecisionResponse> =>
+    (await client.post(`/actions/${id}/decision`, { decision, rejection_reason: reason })).data,
 
-  getAuditEvents: async (actionId?: string): Promise<AuditEventItem[]> => {
-    const params = actionId ? { action_id: actionId } : {};
-    const res = await axios.get(`${API_BASE}/audit`, { params });
-    return res.data;
-  },
+  getAuditEvents: async (actionId?: string): Promise<AuditEventItem[]> =>
+    (await client.get('/audit', { params: actionId ? { action_id: actionId } : {} })).data,
 
-  simulatePolicyBlock: async () => {
-    const res = await axios.post(`${API_BASE}/simulation/policy-block`);
-    return res.data;
-  },
+  simulatePolicyBlock: async (): Promise<SimulationResult> => (await client.post('/simulation/policy-block')).data,
 
-  simulateApiTimeout: async () => {
-    const res = await axios.post(`${API_BASE}/simulation/api-timeout`);
-    return res.data;
-  }
+  simulateApiTimeout: async (): Promise<SimulationResult> => (await client.post('/simulation/api-timeout')).data,
+
+  simulateLostResponse: async (): Promise<SimulationResult> => (await client.post('/simulation/lost-response')).data
 };

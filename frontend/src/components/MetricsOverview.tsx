@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { DollarSign, AlertTriangle, ShieldCheck, TrendingUp, Lock, HelpCircle, Info } from 'lucide-react';
 import { MerchantMetrics } from '../types';
+import { formatINR } from '../utils/format';
 
 interface MetricsOverviewProps {
   metrics: MerchantMetrics | null;
@@ -11,13 +12,7 @@ interface MetricsOverviewProps {
 export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ metrics, onScanClick, scanning }) => {
   const [showMethodology, setShowMethodology] = useState(false);
 
-  const formatINR = (val: number) => {
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR',
-      maximumFractionDigits: 2
-    }).format(val);
-  };
+  const money = (val: number | undefined) => (val === undefined ? '—' : formatINR(val));
 
   return (
     <div className="space-y-6">
@@ -63,9 +58,13 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ metrics, onSca
           </div>
           <div className="mt-3">
             <span className="text-2xl font-extrabold text-white">
-              {formatINR(metrics?.total_revenue || 245000)}
+              {money(metrics?.total_revenue)}
             </span>
-            <p className="text-xs text-slate-500 mt-1">Successfully processed orders</p>
+            <p className="text-xs text-slate-500 mt-1">
+              {metrics && metrics.recovered_amount > 0
+                ? `+ ${formatINR(metrics.recovered_amount)} recovered via RazorGrowth links`
+                : 'Successfully processed orders'}
+            </p>
           </div>
         </div>
 
@@ -80,10 +79,10 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ metrics, onSca
           <div className="mt-3">
             <div className="flex items-baseline space-x-2">
               <span className="text-2xl font-extrabold text-rose-300">
-                {formatINR(metrics?.failed_payment_loss || 7850)}
+                {money(metrics?.failed_payment_loss)}
               </span>
               <span className="text-xs px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-medium">
-                {metrics?.failed_payment_count || 9} failures
+                {metrics?.failed_payment_count ?? '—'} failures
               </span>
             </div>
             <p className="text-xs text-rose-400/80 mt-1">Unmonitored payment drop-offs</p>
@@ -109,9 +108,11 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ metrics, onSca
           </div>
           <div className="mt-3">
             <span className="text-2xl font-extrabold text-indigo-300">
-              {formatINR(metrics?.recoverable_amount || 5495)}
+              {money(metrics?.recoverable_amount)}
             </span>
-            <p className="text-xs text-indigo-400/80 mt-1">70% high-intent recovery estimate</p>
+            <p className="text-xs text-indigo-400/80 mt-1">
+              {metrics ? `${Math.round(metrics.historical_recovery_rate * 100)}% high-intent recovery estimate` : 'Recovery estimate'}
+            </p>
           </div>
 
           {/* Methodology Explainer Tooltip */}
@@ -121,7 +122,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ metrics, onSca
                 <Info className="w-3 h-3" />
                 <span>Calculation Methodology</span>
               </div>
-              <div>Failed Loss: ₹7,850.00 × 70% Historical Recovery Rate = <span className="font-bold text-white">₹5,495.00</span></div>
+              <div>{metrics?.methodology_explanation ?? 'Metrics not loaded yet.'}</div>
               <div className="text-slate-400 mt-0.5">Based on high checkout intent window within 24h of drop-off.</div>
             </div>
           )}
@@ -138,7 +139,7 @@ export const MetricsOverview: React.FC<MetricsOverviewProps> = ({ metrics, onSca
           <div className="mt-3">
             <div className="flex items-baseline space-x-2">
               <span className="text-2xl font-extrabold text-white">
-                {formatINR(metrics?.max_budget_limit || 1000)}
+                {money(metrics?.max_budget_limit)}
               </span>
               <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-medium">
                 Max Cap

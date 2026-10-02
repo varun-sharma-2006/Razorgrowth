@@ -7,7 +7,8 @@ interface FailedPaymentsListProps {
 }
 
 export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments }) => {
-  const failedOnly = payments.filter(p => p.status === 'failed');
+  const failedOnly = payments.filter(p => p.status === 'failed' || p.status === 'recovered');
+  const lost = failedOnly.filter(p => p.status === 'failed').reduce((acc, p) => acc + p.amount, 0);
 
   const getReasonBadge = (reason?: string) => {
     switch (reason) {
@@ -44,11 +45,11 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
             <span>Failed Payment Transaction Telemetry</span>
           </h2>
           <p className="text-xs text-slate-400">
-            Unresolved payment failures monitored by RazorGrowth AI agent ({failedOnly.length} items)
+            Payment failures monitored by RazorGrowth AI agent ({failedOnly.length} items)
           </p>
         </div>
         <span className="text-xs font-semibold px-3 py-1 rounded-full bg-rose-500/10 text-rose-400 border border-rose-500/20">
-          Total Lost: ₹{failedOnly.reduce((acc, p) => acc + p.amount, 0).toLocaleString('en-IN')}
+          Still Lost: ₹{lost.toLocaleString('en-IN')}
         </span>
       </div>
 
@@ -61,7 +62,7 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
               <th className="py-3 px-4">Method</th>
               <th className="py-3 px-4">Failure Reason</th>
               <th className="py-3 px-4 text-right">Amount</th>
-              <th className="py-3 px-4 text-center">Eligibility</th>
+              <th className="py-3 px-4 text-center">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
@@ -85,10 +86,16 @@ export const FailedPaymentsList: React.FC<FailedPaymentsListProps> = ({ payments
                   ₹{p.amount.toLocaleString('en-IN')}
                 </td>
                 <td className="py-3 px-4 text-center">
-                  <span className="inline-flex items-center space-x-1 text-emerald-400 text-[11px] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                    <UserCheck className="w-3 h-3" />
-                    <span>Eligible</span>
-                  </span>
+                  {p.status === 'recovered' ? (
+                    <span className="inline-flex items-center space-x-1 text-emerald-400 text-[11px] font-semibold bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <UserCheck className="w-3 h-3" />
+                      <span>Recovered</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center text-amber-300 text-[11px] font-semibold bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                      Unrecovered
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

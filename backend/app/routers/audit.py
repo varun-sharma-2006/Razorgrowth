@@ -1,39 +1,23 @@
-from fastapi import APIRouter, Depends
 from typing import List, Optional
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from app.database import get_db
 from app.config import settings
+from app.database import get_db
 from app.models import AuditEvent
 from app.schemas import AuditEventSchema
 
 router = APIRouter(prefix="/audit", tags=["Audit Trail"])
 
+
 @router.get("", response_model=List[AuditEventSchema])
 async def list_audit_events(
     action_id: Optional[str] = None,
+    limit: int = Query(default=200, ge=1, le=1000),
     db: AsyncSession = Depends(get_db)
 ):
-    merchant_id = settings.MERCHANT_ID
-    query = select(AuditEvent).where(AuditEvent.merchant_id == merchant_id)
+    query = select(AuditEvent).where(AuditEvent.merchant_id == settings.MERCHANT_ID)
     if action_id:
         query = query.where(AuditEvent.action_id == action_id)
-    query = query.order_by(AuditEvent.timestamp.desc())
-
-    result = await db.execute(query)
-    events = result.scalars().all()
-
-    return [
-        AuditEventSchema(
-            id=e.id,
-            action_id=e.action_id,
-            merchant_id=e.merchant_id,
-            step=e.step,
-            status=e.status,
-            component=e.component,
-            message=e.message,
-            sanitized_payload=e.sanitized_payload or {},
-            timestamp=e.timestamp
-        )
-        for e in events
-    ]
+    query = query.order_by(AuditEvent.timestamp.desc()).limit(limit)
+    return (await db.execute(query)).scalars().all()

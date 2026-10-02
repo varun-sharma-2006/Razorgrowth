@@ -1,91 +1,130 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
-from sqlalchemy import func
-from app.database import get_db
 from app.config import settings
-from app.models import Merchant, Payment, Opportunity, Action, PolicyRule, AuditEvent
-from app.schemas import SystemStatusSchema, MerchantMetricsSchema, PolicyUpdateSchema
+from app.database import get_db, is_sqlite
+from app.models import Action, Payment, PolicyRule, RecoveryLink
+from app.money import format_inr, to_paise, to_rupees
+from app.schemas import MerchantMetricsSchema, PolicySchema, PolicyUpdateSchema, SystemStatusSchema
+from app.security import actor_label
+from app.services.audit_service import AuditService
+from app.services.policy_engine import PolicyEngine
 
+# Public: lets the UI show integration modes and whether it needs an admin key.
+status_router = APIRouter(prefix="/merchant", tags=["Merchant"])
 router = APIRouter(prefix="/merchant", tags=["Merchant"])
 
-@router.get("/status", response_model=SystemStatusSchema)
+
+@status_router.get("/status", response_model=SystemStatusSchema)
 async def get_system_status():
     return SystemStatusSchema(
-        razorpay_mode="RAZORPAY TEST MODE" if settings.is_razorpay_live_test_mode else "LOCAL DEMO MODE",
+        razorpay_mode=settings.razorpay_mode,
         ai_provider_mode=settings.ai_provider_mode,
-        database_type="PostgreSQL" if "postgresql" in settings.DATABASE_URL else "SQLite (Local Dev)",
-        merchant_id=settings.MERCHANT_ID
+        database_type="SQLite (Local Dev)" if is_sqlite else "PostgreSQL",
+        merchant_id=settings.MERCHANT_ID,
+        auth_required=settings.auth_required,
+        webhook_configured=bool(settings.RAZORPAY_WEBHOOK_SECRET),
     )
+
+
+async def _sum_payments(db: AsyncSession, merchant_id: str, status: str) -> int:
+    res = await db.execute(
+        select(func.coalesce(func.sum(Payment.amount_paise), 0)).where(
+            Payment.merchant_id == merchant_id, Payment.status == status
+        )
+    )
+    return int(res.scalar_one())
+
 
 @router.get("/metrics", response_model=MerchantMetricsSchema)
 async def get_merchant_metrics(db: AsyncSession = Depends(get_db)):
     merchant_id = settings.MERCHANT_ID
+    rate = settings.RECOVERY_CONVERSION_RATE
 
-    # Total captured revenue
-    cap_res = await db.execute(
-        select(func.sum(Payment.amount)).where(Payment.merchant_id == merchant_id, Payment.status == "captured")
-    )
-    total_revenue = cap_res.scalar() or 245000.0
-
-    # Failed payment loss
-    fail_res = await db.execute(
-        select(func.sum(Payment.amount)).where(Payment.merchant_id == merchant_id, Payment.status == "failed")
-    )
-    failed_payment_loss = fail_res.scalar() or 0.0
-
-    fail_count_res = await db.execute(
+    total_revenue = await _sum_payments(db, merchant_id, "captured")
+    failed_loss = await _sum_payments(db, merchant_id, "failed")
+    failed_count = (await db.execute(
         select(func.count(Payment.id)).where(Payment.merchant_id == merchant_id, Payment.status == "failed")
-    )
-    failed_payment_count = fail_count_res.scalar() or 0
+    )).scalar_one()
+    recoverable = round(failed_loss * rate)
 
-    # Recoverable estimate (70% of failed payments)
-    recoverable_amount = round(failed_payment_loss * 0.70, 2)
-
-    # Approved actions
-    approved_res = await db.execute(
-        select(func.count(Action.id)).where(Action.merchant_id == merchant_id, Action.status.in_(["APPROVED", "COMPLETED"]))
-    )
-    approved_actions_count = approved_res.scalar() or 0
-
-    # Policy blocked count
-    blocked_res = await db.execute(
+    real_actions = (Action.merchant_id == merchant_id, Action.is_simulation.is_(False))
+    approved_count = (await db.execute(
+        select(func.count(Action.id)).where(*real_actions, Action.status.in_(["APPROVED", "EXECUTING", "COMPLETED"]))
+    )).scalar_one()
+    blocked_count = (await db.execute(
         select(func.count(Action.id)).where(Action.merchant_id == merchant_id, Action.status == "POLICY_BLOCKED")
-    )
-    policy_blocked_count = blocked_res.scalar() or 0
+    )).scalar_one()
 
-    # Policy max budget limit
-    policy_res = await db.execute(
-        select(PolicyRule).where(PolicyRule.merchant_id == merchant_id)
-    )
-    policy = policy_res.scalars().first()
-    max_budget_limit = policy.max_single_action_budget if policy else settings.DEFAULT_MAX_BUDGET
+    link_stats = (await db.execute(
+        select(
+            func.count(RecoveryLink.id).filter(RecoveryLink.status.in_(["CREATED", "PAID"])),
+            func.coalesce(func.sum(RecoveryLink.amount_paise).filter(RecoveryLink.status == "PAID"), 0),
+        ).join(Action, Action.id == RecoveryLink.action_id).where(*real_actions)
+    )).one()
+
+    policy = await PolicyEngine.get_policy(db, merchant_id)
+    max_budget = policy.max_single_action_budget_paise if policy else to_paise(settings.DEFAULT_MAX_BUDGET)
 
     return MerchantMetricsSchema(
-        total_revenue=total_revenue,
-        failed_payment_loss=failed_payment_loss,
-        failed_payment_count=failed_payment_count,
-        recoverable_amount=recoverable_amount,
-        approved_actions_count=approved_actions_count,
-        policy_blocked_count=policy_blocked_count,
-        max_budget_limit=max_budget_limit
+        total_revenue=to_rupees(total_revenue),
+        failed_payment_loss=to_rupees(failed_loss),
+        failed_payment_count=failed_count,
+        historical_recovery_rate=rate,
+        recoverable_amount=to_rupees(recoverable),
+        methodology_explanation=(
+            f"{format_inr(failed_loss)} failed payments × {rate:.0%} estimated conversion rate "
+            f"(prior purchase intent) = {format_inr(recoverable)}"
+        ),
+        approved_actions_count=approved_count,
+        policy_blocked_count=blocked_count,
+        max_budget_limit=to_rupees(max_budget),
+        recovery_links_sent=link_stats[0],
+        recovered_amount=to_rupees(int(link_stats[1])),
     )
 
-@router.put("/policy")
+
+@router.get("/policy", response_model=PolicySchema)
+async def get_merchant_policy(db: AsyncSession = Depends(get_db)):
+    policy = await PolicyEngine.get_policy(db, settings.MERCHANT_ID)
+    return PolicySchema(
+        max_single_action_budget=policy.max_single_action_budget if policy else settings.DEFAULT_MAX_BUDGET,
+        allowed_action_types=[
+            t.strip() for t in (policy.allowed_action_types if policy else settings.ALLOWED_ACTION_TYPES).split(",")
+        ],
+        requires_human_approval=policy.requires_human_approval if policy else True,
+    )
+
+
+@router.put("/policy", response_model=PolicySchema)
 async def update_merchant_policy(body: PolicyUpdateSchema, db: AsyncSession = Depends(get_db)):
     merchant_id = settings.MERCHANT_ID
-    result = await db.execute(
-        select(PolicyRule).where(PolicyRule.merchant_id == merchant_id)
-    )
-    policy = result.scalars().first()
+    new_cap = to_paise(body.max_single_action_budget)
+    policy = await PolicyEngine.get_policy(db, merchant_id)
+    old_cap = policy.max_single_action_budget_paise if policy else to_paise(settings.DEFAULT_MAX_BUDGET)
     if not policy:
         policy = PolicyRule(
-            id="pol_default",
+            id=f"pol_{merchant_id}",
             merchant_id=merchant_id,
-            max_single_action_budget=body.max_single_action_budget
+            max_single_action_budget_paise=new_cap,
+            allowed_action_types=settings.ALLOWED_ACTION_TYPES,
         )
         db.add(policy)
     else:
-        policy.max_single_action_budget = body.max_single_action_budget
+        policy.max_single_action_budget_paise = new_cap
+
+    AuditService.log_event(
+        db=db,
+        merchant_id=merchant_id,
+        step="POLICY_UPDATE",
+        status="SUCCESS",
+        component="MerchantAdmin",
+        message=f"Merchant safety cap changed from {format_inr(old_cap)} to {format_inr(new_cap)}.",
+        sanitized_payload={
+            "old_max_single_action_budget": to_rupees(old_cap),
+            "new_max_single_action_budget": to_rupees(new_cap),
+            "actor": actor_label(),
+        },
+    )
     await db.commit()
-    return {"status": "updated", "max_single_action_budget": policy.max_single_action_budget}
+    return await get_merchant_policy(db)
