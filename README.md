@@ -4,7 +4,7 @@
 > *Run a store for a simulated week. Payments fail. Your AI agent proposes Razorpay recovery campaigns, but it can't spend a rupee without your approval, and a deterministic policy engine blocks anything unsafe. Win back as much lost revenue as you can.*
 
 🎮 **Play**: [razorgrowth.vercel.app](https://razorgrowth.vercel.app) | 🔗 **Repo**: [github.com/varun-sharma-2006/Razorgrowth](https://github.com/varun-sharma-2006/Razorgrowth) | 📜 **License**: [MIT](LICENSE)  
-👥 **Team**: [Varun Sharma](https://github.com/varun-sharma-2006) and [Yashika Garg](https://github.com/yashikagarg16).
+👤 **Author**: [Varun Sharma](https://github.com/varun-sharma-2006).
 
 ---
 
@@ -196,4 +196,4 @@ frontend/src/
 
 ## 📜 License
 
-[MIT](LICENSE). Built by **[Varun Sharma](https://github.com/varun-sharma-2006)** and **[Yashika Garg](https://github.com/yashikagarg16)** for the **Razorpay AI Buildathon 2026**.
+[MIT](LICENSE). Built by **[Varun Sharma](https://github.com/varun-sharma-2006)** for the **Razorpay AI Buildathon 2026**.

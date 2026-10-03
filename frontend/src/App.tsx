@@ -529,7 +529,7 @@ const Footer = () => (
     <div className="max-w-[1240px] mx-auto px-4 sm:px-8 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
       <div><span className="font-display text-sm text-slate-300">RazorGrowth</span> · permissioned AI merchant-growth agent</div>
       <div>
-        Built by <span className="text-brand-300">Varun Sharma</span> &amp; <span className="text-brand-300">Yashika Garg</span> for <span className="text-brand-300">Razorpay AI Buildathon 2026</span>
+        Built by <span className="text-brand-300">Varun Sharma</span> for <span className="text-brand-300">Razorpay AI Buildathon 2026</span>
       </div>
     </div>
   </footer>
